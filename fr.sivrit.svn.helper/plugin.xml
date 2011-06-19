@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <extension-point id="fr.sivrit.svn.helper.impl" name="fr.sivrit.svn.helper.impl" schema="schema/svnhelper.impl.exsd"/>
+
+
+   <!-- serious stuff -->
+   <extension
+         point="org.eclipse.ui.popupMenus">
+      <objectContribution
+            objectClass="org.tigris.subversion.subclipse.core.ISVNRemoteFolder"
+            adaptable="true"
+            id="org.tigris.subversion.subclipse.ui.RemoteFolderContributions">
+
+         <action
+               class="fr.sivrit.svn.helper.ui.actions.CheckoutAction"
+               enablesFor="+"
+               id="fr.sivrit.svn.helper.ui.actions.checkout"
+               label="Recursive checkout"
+               menubarPath="checkoutGroup">
+         </action>
+         <action
+               class="fr.sivrit.svn.helper.ui.actions.CreateWorkingSetsAction"
+               enablesFor="+"
+               id="fr.sivrit.svn.helper.ui.actions.workingsets"
+               label="Define working sets"
+               menubarPath="checkoutGroup">
+         </action>
+      </objectContribution>
+   </extension>
+   <extension
+         point="org.eclipse.ui.preferencePages">
+      <page
+            category="org.tigris.subversion.subclipse.ui.SVNPreferences"
+            class="fr.sivrit.svn.helper.ui.preferences.PreferencePage"
+            id="fr.sivrit.svn.helper.ui.preferences.PreferencePage"
+            name="Svn Helper Preferences">
+      </page>
+   </extension>
+   <extension
+         point="org.eclipse.core.runtime.preferences">
+      <initializer
+            class="fr.sivrit.svn.helper.ui.preferences.PreferenceInitializer">
+      </initializer>
+   </extension>
+</plugin>

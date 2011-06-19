@@ -1,0 +1,4 @@
+.metadata/
+.settings/
+*.class
+.scala_dependencies
