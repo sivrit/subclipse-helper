@@ -8,7 +8,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ResourcesPlugin;
@@ -38,6 +41,10 @@ public class ProjectUtils {
     // Bundle-RequiredExecutionEnvironment: JavaSE-1.6
     // Export-Package: svnhelper.core.repo
     // Bundle-Activator: svnhelper.Activator
+
+    public static Collection<String> splitLines(final String content) {
+        return Arrays.asList(content.split("\n"));
+    }
 
     public static void fillFromManifest(final ProjectDeps project, final File manifest) {
         final Collection<String> lines = new ArrayList<String>();
@@ -106,5 +113,28 @@ public class ProjectUtils {
         }
 
         return result;
+    }
+
+    public static String findPluginName(final String manifestContent) {
+        return findPluginName(splitLines(manifestContent));
+    }
+
+    private static String findPluginName(final Collection<String> manifest) {
+        final String symbolicNameRegex = "Bundle-SymbolicName:\\s*([^;]+)(?:.*)";
+        final Pattern pattern = Pattern.compile(symbolicNameRegex);
+
+        for (final String line : manifest) {
+            final Matcher matcher = pattern.matcher(line);
+            if (matcher.matches()) {
+                assert matcher.groupCount() > 0;
+                return matcher.group(1);
+            }
+        }
+
+        return null;
+    }
+
+    public static String findProjectName(final String projectFileContent) {
+        return null;
     }
 }
