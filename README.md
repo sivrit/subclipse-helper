@@ -10,6 +10,7 @@ On the way, I also decided to experiment with Scala. Being unfamiliar with Scala
  - Add all plug-ins to your Eclipse installation (in the "dropins" folder)
 
 This will contribute the following operations to the "SVN Repositories" view:
+
  - _Recursive switch/checkout_. This will explore recursively each selected directory. For each Eclipse project found, it will either be checked out, or, if there is a project in the workspace with the same project name or plug-in id, switched to.
  - _Define working sets_. A working set will be created for each selected folder. All projects found inside these folders in the repository will be assigned to the corresponding working set. _Still buggy (the new working sets only appear in the workspace after a restart if the IDE)_
 
@@ -28,6 +29,7 @@ The usual: I am writing this to take care of an itch of mine. This is published 
 
 ## TODO
 By order of priority:
+
  - Using maven to fetch the dependencies.
  - Making the "Define working sets" action work reliably.
  - An actual java implementation.
