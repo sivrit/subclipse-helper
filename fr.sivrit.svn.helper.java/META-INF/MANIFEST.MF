@@ -7,6 +7,7 @@ Bundle-License: http://www.eclipse.org/legal/epl-v10.html
 Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.core.resources,
  org.tigris.subversion.subclipse.core,
- fr.sivrit.svn.helper;bundle-version="0.0.0"
+ fr.sivrit.svn.helper;bundle-version="0.0.0",
+ org.junit
 Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-1.6
