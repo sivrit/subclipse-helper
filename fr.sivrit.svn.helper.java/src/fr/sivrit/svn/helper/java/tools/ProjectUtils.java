@@ -1,6 +1,7 @@
 package fr.sivrit.svn.helper.java.tools;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -13,8 +14,16 @@ import java.util.Collection;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ResourcesPlugin;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 import fr.sivrit.svn.helper.java.repo.ProjectDeps;
 
@@ -135,6 +144,29 @@ public class ProjectUtils {
     }
 
     public static String findProjectName(final String projectFileContent) {
-        return null;
+        final Document dom;
+        try {
+            final DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            final DocumentBuilder db = dbf.newDocumentBuilder();
+            dom = db.parse(new ByteArrayInputStream(projectFileContent.getBytes("UTF-8")));
+
+        } catch (final ParserConfigurationException pce) {
+            throw new IllegalStateException(pce);
+        } catch (final SAXException se) {
+            throw new IllegalArgumentException(se);
+        } catch (final IOException ioe) {
+            // Really unexpected
+            throw new RuntimeException(ioe);
+        }
+
+        final NodeList nodes = dom.getElementsByTagName("name");
+        assert nodes.getLength() <= 1;
+
+        if (nodes.getLength() >= 1) {
+            final Node nameNode = nodes.item(0);
+            return nameNode.getTextContent();
+        } else {
+            return null;
+        }
     }
 }
