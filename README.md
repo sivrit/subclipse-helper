@@ -32,4 +32,3 @@ By order of priority:
 
  - Using maven to fetch the dependencies.
  - Making the "Define working sets" action work reliably.
- - An actual java implementation.

@@ -7,7 +7,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -18,8 +20,10 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.IPath;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -30,6 +34,10 @@ import fr.sivrit.svn.helper.java.repo.ProjectDeps;
 public class ProjectUtils {
     private ProjectUtils() {
         super();
+    }
+
+    public static IProject findWorkspaceProject(final String name) {
+        return ResourcesPlugin.getWorkspace().getRoot().getProject(name);
     }
 
     private final static String BUNDLE_NAME = "Bundle-SymbolicName:";
@@ -113,12 +121,16 @@ public class ProjectUtils {
         final Collection<ProjectDeps> result = new ArrayList<ProjectDeps>();
         final IProject[] projects = ResourcesPlugin.getWorkspace().getRoot().getProjects();
         for (final IProject project : projects) {
-            final File manifest = project.getFile("META-INF/MANIFEST.MF").getLocation().toFile();
-            if (manifest.exists() && manifest.isFile()) {
-                final ProjectDeps deps = new ProjectDeps();
+            final ProjectDeps deps = new ProjectDeps(project.getName(), null);
+
+            final IFile manifestFile = project.getFile("META-INF/MANIFEST.MF");
+            final IPath manifestPath = manifestFile == null ? null : manifestFile.getLocation();
+            final File manifest = manifestPath == null ? null : manifestPath.toFile();
+            if (manifest != null && manifest.exists() && manifest.isFile()) {
                 fillFromManifest(deps, manifest);
-                result.add(deps);
             }
+
+            result.add(deps);
         }
 
         return result;
@@ -143,30 +155,45 @@ public class ProjectUtils {
         return null;
     }
 
-    public static String findProjectName(final String projectFileContent) {
+    public static String findProjectName(final String projectFileContent) throws IOException {
+        try {
+            return findProjectName(new ByteArrayInputStream(projectFileContent.getBytes("UTF-8")));
+        } catch (final UnsupportedEncodingException e) {
+            // Really unexpected
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static Node findNode(final NodeList nodes, final String name) {
+        final int count = nodes.getLength();
+        for (int i = 0; i < count; i++) {
+            final Node node = nodes.item(i);
+            if (name.equals(node.getNodeName())) {
+                return node;
+            }
+        }
+        return null;
+    }
+
+    public static String findProjectName(final InputStream projectFileContent) throws IOException {
         final Document dom;
         try {
             final DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             final DocumentBuilder db = dbf.newDocumentBuilder();
-            dom = db.parse(new ByteArrayInputStream(projectFileContent.getBytes("UTF-8")));
+            dom = db.parse(projectFileContent);
 
         } catch (final ParserConfigurationException pce) {
             throw new IllegalStateException(pce);
         } catch (final SAXException se) {
             throw new IllegalArgumentException(se);
-        } catch (final IOException ioe) {
-            // Really unexpected
-            throw new RuntimeException(ioe);
         }
 
-        final NodeList nodes = dom.getElementsByTagName("name");
-        assert nodes.getLength() <= 1;
+        final Node projectDescription = findNode(dom.getChildNodes(), "projectDescription");
+        assert projectDescription != null;
 
-        if (nodes.getLength() >= 1) {
-            final Node nameNode = nodes.item(0);
-            return nameNode.getTextContent();
-        } else {
-            return null;
-        }
+        final Node name = findNode(projectDescription.getChildNodes(), "name");
+        assert name != null;
+
+        return name.getTextContent();
     }
 }
