@@ -1,9 +1,9 @@
 package fr.sivrit.svn.helper.ui.preferences;
 
 import org.eclipse.jface.preference.BooleanFieldEditor;
+import org.eclipse.jface.preference.ComboFieldEditor;
 import org.eclipse.jface.preference.FieldEditorPreferencePage;
 import org.eclipse.jface.preference.IntegerFieldEditor;
-import org.eclipse.jface.preference.StringFieldEditor;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
 
@@ -37,8 +37,10 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
      */
     @Override
     public void createFieldEditors() {
-        addField(new StringFieldEditor(Preferences.P_PREFERRED_IMPLEMENTATION,
-                "Preferred implementation name", getFieldEditorParent()));
+        addField(new ComboFieldEditor(Preferences.P_PREFERRED_IMPLEMENTATION,
+                "Preferred implementation name", SvnHelperProxy.listAvailableImplementations(),
+                getFieldEditorParent()));
+
         addField(new BooleanFieldEditor(Preferences.P_ENABLE_DEBUG, "Enable debug output",
                 getFieldEditorParent()));
 
@@ -60,6 +62,7 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
      * @see
      * org.eclipse.ui.IWorkbenchPreferencePage#init(org.eclipse.ui.IWorkbench)
      */
+    @Override
     public void init(final IWorkbench workbench) {
         SvnHelperProxy.resetImplementation();
     }
