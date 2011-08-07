@@ -31,4 +31,5 @@ The usual: I am writing this to take care of an itch of mine. This is published 
 By order of priority:
 
  - Using maven to fetch the dependencies.
- - Making the "Define working sets" action work reliably.
+ - Optimize the SVN crawler
+ - Avoid some useless SVN switch

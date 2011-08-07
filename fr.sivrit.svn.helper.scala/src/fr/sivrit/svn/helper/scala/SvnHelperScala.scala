@@ -70,37 +70,40 @@ class SvnHelperScala extends ISvnHelper {
       return false;
     }
 
-    // Show the Java perspective, the package explorer and witch to a view
-    // by working sets.
-    val workbench: IWorkbench = PlatformUI.getWorkbench()
-    try {
-      workbench.showPerspective(JavaUI.ID_PERSPECTIVE, workbench.getActiveWorkbenchWindow());
-    } catch {
-      case e: WorkbenchException =>
-        e.printStackTrace();
-        return false;
-    }
+    if (Preferences.getSwitchPerspective()) {
+      // Show the Java perspective, the package explorer and witch to a view
+      // by working sets.
+      val workbench: IWorkbench = PlatformUI.getWorkbench()
+      try {
+        workbench.showPerspective(JavaUI.ID_PERSPECTIVE, workbench.getActiveWorkbenchWindow());
+      } catch {
+        case e: WorkbenchException =>
+          e.printStackTrace();
+          return false;
+      }
 
-    val explo: PackageExplorerPart = PackageExplorerPart.openInActivePerspective()
-    if (explo.getRootMode() == PackageExplorerPart.PROJECTS_AS_ROOTS) {
-      explo.rootModeChanged(PackageExplorerPart.WORKING_SETS_AS_ROOTS)
+      val explo: PackageExplorerPart = PackageExplorerPart.openInActivePerspective()
+      if (explo.getRootMode() == PackageExplorerPart.PROJECTS_AS_ROOTS) {
+        explo.rootModeChanged(PackageExplorerPart.WORKING_SETS_AS_ROOTS)
+      }
     }
 
     // Create missing IWorkingSet and index all WS by name
     val workingSets: Map[String, IWorkingSet] = SvnHelperScala.createWorkingSets(newWS.keys)
 
-    // Remove the projects we will dispatch from existing WS
-    var allProjects: Set[IProject] = Set()
-    for (val projects <- newWS.values) {
-      allProjects ++= projects;
+    if (Preferences.getTransferFromWorkingSets()) {
+      // Remove the projects we will dispatch from existing WS
+      var allProjects: Set[IProject] = Set()
+      for (val projects <- newWS.values) {
+        allProjects ++= projects;
+      }
+      SvnHelperScala.removeProjectsFromWorkingSets(workingSets.values, allProjects);
     }
-    SvnHelperScala.removeProjectsFromWorkingSets(workingSets.values, allProjects);
 
     val wsManager: IWorkingSetManager = WorkbenchPlugin.getDefault().getWorkingSetManager()
     for ((wsName, projects) <- newWS) {
       val workingSet = Array(workingSets.getOrElse(wsName, null))
 
-      projects.foreach(proj => WorkbenchPlugin.log("Will add " + proj.getName + " to " + wsName))
       projects.foreach(wsManager.addToWorkingSets(_, workingSet))
     }
 

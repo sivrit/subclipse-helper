@@ -1,6 +1,7 @@
 package fr.sivrit.svn.helper;
 
 import org.eclipse.ui.plugin.AbstractUIPlugin;
+import org.tigris.subversion.svnclientadapter.SVNUrl;
 
 import fr.sivrit.svn.helper.ui.Activator;
 
@@ -41,6 +42,20 @@ public final class Preferences {
      * sort them when they're already there)
      */
     public static final String P_EXCLUDE_WS = "applyExclusionsOnWS";
+
+    /**
+     * If <code>true</code>, {@link ISvnHelper#createWorkingSets(SVNUrl[])} will
+     * switch to the Java perspective and show the package explorer.
+     */
+    public static final String P_SWITCH_PERSPECTIVE = "switchPerspective";
+
+    /**
+     * If <code>true</code>, {@link ISvnHelper#createWorkingSets(SVNUrl[])} will
+     * remove the projects it does dispatch from all existing Working Sets,
+     * effectively moving them from the old Working Sets to the new one.
+     * Otherwise, the projects will appear in multiple Working Sets.
+     */
+    public static final String P_TRANSFER_FROM_WS = "transferFromWorkingSets";
 
     /**
      * Whether {@link #P_EXCLUSIONS} is used when looking for dependencies
@@ -97,9 +112,19 @@ public final class Preferences {
 
         return Math.min(1, value);
     }
-    
+
     public static boolean enableDebugInformation() {
         final AbstractUIPlugin plugin = Activator.getPlugin();
         return plugin.getPreferenceStore().getBoolean(P_ENABLE_DEBUG);
+    }
+
+    public static boolean getSwitchPerspective() {
+        final AbstractUIPlugin plugin = Activator.getPlugin();
+        return plugin.getPreferenceStore().getBoolean(P_SWITCH_PERSPECTIVE);
+    }
+
+    public static boolean getTransferFromWorkingSets() {
+        final AbstractUIPlugin plugin = Activator.getPlugin();
+        return plugin.getPreferenceStore().getBoolean(P_TRANSFER_FROM_WS);
     }
 }

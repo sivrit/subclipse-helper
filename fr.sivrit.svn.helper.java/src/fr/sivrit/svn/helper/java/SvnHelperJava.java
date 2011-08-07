@@ -143,30 +143,36 @@ public class SvnHelperJava implements ISvnHelper {
             return false;
         }
 
-        // Show the Java perspective, the package explorer and witch to a view
-        // by working sets.
-        final IWorkbench workbench = PlatformUI.getWorkbench();
-        try {
-            workbench.showPerspective(JavaUI.ID_PERSPECTIVE, workbench.getActiveWorkbenchWindow());
-        } catch (final WorkbenchException e) {
-            e.printStackTrace();
-            return false;
-        }
+        if (Preferences.getSwitchPerspective()) {
+            // Show the Java perspective, the package explorer and witch to a
+            // view
+            // by working sets.
+            final IWorkbench workbench = PlatformUI.getWorkbench();
+            try {
+                workbench.showPerspective(JavaUI.ID_PERSPECTIVE,
+                        workbench.getActiveWorkbenchWindow());
+            } catch (final WorkbenchException e) {
+                e.printStackTrace();
+                return false;
+            }
 
-        final PackageExplorerPart explo = PackageExplorerPart.openInActivePerspective();
-        if (explo.getRootMode() == PackageExplorerPart.PROJECTS_AS_ROOTS) {
-            explo.rootModeChanged(PackageExplorerPart.WORKING_SETS_AS_ROOTS);
+            final PackageExplorerPart explo = PackageExplorerPart.openInActivePerspective();
+            if (explo.getRootMode() == PackageExplorerPart.PROJECTS_AS_ROOTS) {
+                explo.rootModeChanged(PackageExplorerPart.WORKING_SETS_AS_ROOTS);
+            }
         }
 
         // Create missing IWorkingSet and index all WS by name
         final Map<String, IWorkingSet> workingSets = createWorkingSets(newWS.keySet());
 
-        // Remove the projects we will dispatch from existing WS
-        final Set<IProject> allProjects = new HashSet<IProject>();
-        for (final Collection<IProject> projects : newWS.values()) {
-            allProjects.addAll(projects);
+        if (Preferences.getTransferFromWorkingSets()) {
+            // Remove the projects we will dispatch from existing WS
+            final Set<IProject> allProjects = new HashSet<IProject>();
+            for (final Collection<IProject> projects : newWS.values()) {
+                allProjects.addAll(projects);
+            }
+            removeProjectsFromWorkingSets(workingSets.values(), allProjects);
         }
-        removeProjectsFromWorkingSets(workingSets.values(), allProjects);
 
         // Dispatch the projects
         final IWorkingSetManager wsManager = WorkbenchPlugin.getDefault().getWorkingSetManager();
@@ -177,9 +183,7 @@ public class SvnHelperJava implements ISvnHelper {
             final IWorkingSet[] workingSet = new IWorkingSet[] { workingSets.get(wsName) };
 
             for (final IProject project : projects) {
-                WorkbenchPlugin.log("Will add " + project.getName() + " to " + wsName);
                 wsManager.addToWorkingSets(project, workingSet);
-                // wsm.addActiveWorkingSet(workingSets.get(wsName));
             }
 
         }

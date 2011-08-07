@@ -24,9 +24,14 @@ public class PreferenceInitializer extends AbstractPreferenceInitializer {
         store.setDefault(Preferences.P_PREFERRED_IMPLEMENTATION,
                 SvnHelperProxy.DEFAULT_IMPLEMENTATION);
         store.setDefault(Preferences.P_CRAWLER_PARALLEL_REQUEST_LIMIT, 8);
+
         store.setDefault(Preferences.P_EXCLUSIONS, "");
-        store.setDefault(Preferences.P_EXCLUDE_WS, true);
         store.setDefault(Preferences.P_EXCLUDE_DEP, true);
+
+        store.setDefault(Preferences.P_EXCLUDE_WS, true);
+        store.setDefault(Preferences.P_SWITCH_PERSPECTIVE, true);
+        store.setDefault(Preferences.P_TRANSFER_FROM_WS, true);
+
         store.setDefault(Preferences.P_ENABLE_DEBUG, false);
     }
 }

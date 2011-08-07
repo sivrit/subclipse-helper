@@ -50,10 +50,17 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
         addField(new ExclusionListEditor(Preferences.P_EXCLUSIONS,
                 "Exclude URLs matching the following (java) regexps:", getFieldEditorParent()));
 
-        addField(new BooleanFieldEditor(Preferences.P_EXCLUDE_WS,
-                "Apply exclusions to Working Sets", getFieldEditorParent()));
         addField(new BooleanFieldEditor(Preferences.P_EXCLUDE_DEP,
                 "Apply exclusions to Dependency Lookup", getFieldEditorParent()));
+
+        addField(new BooleanFieldEditor(Preferences.P_EXCLUDE_WS,
+                "Apply exclusions to Working Sets", getFieldEditorParent()));
+        addField(new BooleanFieldEditor(Preferences.P_SWITCH_PERSPECTIVE,
+                "Switch to the Java perspective when defining Working Sets", getFieldEditorParent()));
+        addField(new BooleanFieldEditor(Preferences.P_TRANSFER_FROM_WS,
+                "Remove projects from existing Working Sets before adding them to new ones",
+                getFieldEditorParent()));
+
     }
 
     /*
