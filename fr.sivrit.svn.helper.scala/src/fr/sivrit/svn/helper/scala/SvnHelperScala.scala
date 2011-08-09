@@ -1,7 +1,6 @@
 package fr.sivrit.svn.helper.scala
 
 import scala.util.matching.Regex
-
 import org.eclipse.core.resources.IProject
 import org.eclipse.core.resources.ResourcesPlugin
 import org.eclipse.core.runtime.IAdaptable
@@ -18,13 +17,14 @@ import org.eclipse.ui.WorkbenchException
 import org.tigris.subversion.subclipse.core.ISVNRepositoryLocation
 import org.tigris.subversion.subclipse.core.SVNProviderPlugin
 import org.tigris.subversion.svnclientadapter.SVNUrl
-
 import fr.sivrit.svn.helper.scala.core.ProjectDeps
 import fr.sivrit.svn.helper.scala.svn.SvnCheckOut
 import fr.sivrit.svn.helper.scala.svn.SvnCrawler
 import fr.sivrit.svn.helper.scala.svn.SvnSwitch
 import fr.sivrit.svn.helper.ISvnHelper
 import fr.sivrit.svn.helper.Preferences
+import org.tigris.subversion.svnclientadapter.ISVNStatus
+import fr.sivrit.svn.helper.scala.svn.SvnClient
 
 class SvnHelperScala extends ISvnHelper {
 
@@ -132,6 +132,7 @@ object SvnHelperScala {
     var toCo = Set[SVNUrl]()
 
     val workspace: Set[ProjectDeps] = findTeamWorkspaceProjects()
+    val svn = SvnClient.getSvnClient()
 
     remotes.foreach(item => item match {
       case (project, url) =>
@@ -139,8 +140,16 @@ object SvnHelperScala {
           case deps => ProjectDeps.doMatch(project, deps)
         } match {
           case Some(deps) =>
-            val duo = (findWorkspaceProject(deps.name), url)
-            toSwitch = toSwitch + duo
+            val iproj: IProject = findWorkspaceProject(deps.name)
+
+            assert(iproj != null, deps.name)
+
+            val status: ISVNStatus = svn.getStatus(iproj.getLocation().toFile())
+
+            if (!url.equals(status.getUrl())) {
+              val duo = (iproj, url)
+              toSwitch += duo
+            }
           case None => toCo = toCo + url
         }
     })

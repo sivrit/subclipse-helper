@@ -1,6 +1,7 @@
 package fr.sivrit.svn.helper.java.svn;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -10,11 +11,12 @@ import org.tigris.subversion.subclipse.core.SVNProviderPlugin;
 import org.tigris.subversion.svnclientadapter.ISVNClientAdapter;
 import org.tigris.subversion.svnclientadapter.ISVNDirEntry;
 import org.tigris.subversion.svnclientadapter.ISVNInfo;
+import org.tigris.subversion.svnclientadapter.ISVNStatus;
 import org.tigris.subversion.svnclientadapter.SVNClientException;
 import org.tigris.subversion.svnclientadapter.SVNRevision;
 import org.tigris.subversion.svnclientadapter.SVNUrl;
 
-final class SvnClient {
+public final class SvnClient {
     public static SvnClient create() throws SVNException {
         return new SvnClient();
     }
@@ -31,6 +33,10 @@ final class SvnClient {
 
     public ISVNInfo getInfo(final SVNUrl svnUrl) throws SVNClientException {
         return adapter.getInfo(svnUrl);
+    }
+
+    public ISVNStatus getStatus(final File file) throws SVNClientException {
+        return adapter.getSingleStatus(file);
     }
 
     public InputStream getContent(final SVNUrl svnUrl) throws SVNClientException {

@@ -25,6 +25,8 @@ import org.eclipse.ui.internal.WorkbenchPlugin;
 import org.tigris.subversion.subclipse.core.ISVNRepositoryLocation;
 import org.tigris.subversion.subclipse.core.SVNException;
 import org.tigris.subversion.subclipse.core.SVNProviderPlugin;
+import org.tigris.subversion.svnclientadapter.ISVNStatus;
+import org.tigris.subversion.svnclientadapter.SVNClientException;
 import org.tigris.subversion.svnclientadapter.SVNUrl;
 
 import fr.sivrit.svn.helper.ISvnHelper;
@@ -33,6 +35,7 @@ import fr.sivrit.svn.helper.java.repo.ProjectDeps;
 import fr.sivrit.svn.helper.java.svn.CheckOut;
 import fr.sivrit.svn.helper.java.svn.Crawler;
 import fr.sivrit.svn.helper.java.svn.RemoteProject;
+import fr.sivrit.svn.helper.java.svn.SvnClient;
 import fr.sivrit.svn.helper.java.svn.Switch;
 import fr.sivrit.svn.helper.java.tools.ProjectUtils;
 
@@ -54,7 +57,15 @@ public class SvnHelperJava implements ISvnHelper {
 
         final Set<RemoteProject> toSwitch = new HashSet<RemoteProject>();
         final Set<RemoteProject> toCo = new HashSet<RemoteProject>();
-        sortOut(svnProjects, toSwitch, toCo);
+        try {
+            sortOut(svnProjects, toSwitch, toCo);
+        } catch (SVNException e) {
+            e.printStackTrace();
+            return false;
+        } catch (SVNClientException e) {
+            e.printStackTrace();
+            return false;
+        }
 
         final String title = svnUrls.length == 1 ? "checkoutBranch: " + svnUrls[0]
                 : "checkoutBranches";
@@ -79,8 +90,10 @@ public class SvnHelperJava implements ISvnHelper {
     }
 
     private void sortOut(final Collection<RemoteProject> remotes,
-            final Set<RemoteProject> toSwitch, final Set<RemoteProject> toCo) {
+            final Set<RemoteProject> toSwitch, final Set<RemoteProject> toCo) throws SVNException,
+            SVNClientException {
 
+        final SvnClient svn = SvnClient.create();
         final Set<ProjectDeps> workspace = findTeamWorkspaceProjects();
 
         for (final RemoteProject remote : remotes) {
@@ -95,7 +108,14 @@ public class SvnHelperJava implements ISvnHelper {
             if (local == null) {
                 toCo.add(remote);
             } else {
-                toSwitch.add(remote);
+                final IProject iproj = ProjectUtils.findWorkspaceProject(local.getName());
+                assert iproj != null : local.getName();
+
+                final ISVNStatus status = svn.getStatus(iproj.getLocation().toFile());
+
+                if (!remote.getUrl().equals(status.getUrl())) {
+                    toSwitch.add(remote);
+                }
             }
         }
     }

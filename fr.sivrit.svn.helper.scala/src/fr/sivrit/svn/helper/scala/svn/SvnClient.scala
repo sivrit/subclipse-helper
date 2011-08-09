@@ -2,9 +2,11 @@ package fr.sivrit.svn.helper.scala.svn
 
 import java.io.InputStream
 import org.tigris.subversion.subclipse.core.SVNProviderPlugin
-import org.tigris.subversion.svnclientadapter.{ISVNClientAdapter, ISVNDirEntry, ISVNInfo, SVNRevision, SVNUrl}
+import org.tigris.subversion.svnclientadapter.{ ISVNClientAdapter, ISVNDirEntry, ISVNInfo, SVNRevision, SVNUrl }
 import scala.io.Source
-import scala.xml.{Elem, XML}
+import scala.xml.{ Elem, XML }
+import org.tigris.subversion.svnclientadapter.ISVNStatus
+import java.io.File
 
 class SvnClient(adapter: ISVNClientAdapter) {
 
@@ -16,6 +18,10 @@ class SvnClient(adapter: ISVNClientAdapter) {
 
   def getInfo(svnUrl: SVNUrl): ISVNInfo = {
     return adapter.getInfo(svnUrl)
+  }
+
+  def getStatus(file: File): ISVNStatus = {
+    adapter.getSingleStatus(file)
   }
 
   def getContent(svnUrl: SVNUrl): InputStream = {
