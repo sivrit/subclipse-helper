@@ -28,8 +28,6 @@ The usual: I am writing this to take care of an itch of mine. This is published 
  - A plug-in containing the Scala runtime 2.9.0. This could be provided by [Scala IDE](http://www.scala-ide.org/) or scala-library from http://scala-tools.org/.
 
 ## TODO
-By order of priority:
-
  - Using maven to fetch the dependencies.
  - Optimize the SVN crawler
- - Avoid some useless SVN switch
+ - Add some more tests (tricky since it will require to mock Subclise and Eclipse APIs).
