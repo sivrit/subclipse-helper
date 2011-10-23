@@ -116,7 +116,7 @@ public final class Preferences {
         final AbstractUIPlugin plugin = Activator.getPlugin();
         final int value = plugin.getPreferenceStore().getInt(P_CRAWLER_PARALLEL_REQUEST_LIMIT);
 
-        return Math.min(1, value);
+        return Math.max(1, value);
     }
 
     public static boolean enableDebugInformation() {
