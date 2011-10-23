@@ -9,56 +9,27 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.eclipse.core.runtime.IStatus;
-import org.tigris.subversion.svnclientadapter.ISVNDirEntry;
-import org.tigris.subversion.svnclientadapter.ISVNInfo;
+import org.tigris.subversion.subclipse.core.SVNException;
 import org.tigris.subversion.svnclientadapter.SVNClientException;
-import org.tigris.subversion.svnclientadapter.SVNNodeKind;
 import org.tigris.subversion.svnclientadapter.SVNUrl;
 
 import fr.sivrit.svn.helper.Logger;
-import fr.sivrit.svn.helper.Preferences;
 import fr.sivrit.svn.helper.java.SvnHelperJava;
 
-public class Cache {
+public class CachedSvnClient extends SvnClient {
     private final String DIR = "DIR";
     private final String FILE = "FILE";
 
-    public static final class CachedEntry {
-        public final SVNUrl url;
-        public final String content;
-        public final Map<String, Long> children;
-        public final boolean isDir;
-
-        private CachedEntry(final SVNUrl url, final Map<String, Long> children) {
-            super();
-            this.url = url;
-            this.content = null;
-            this.children = children;
-            this.isDir = true;
-        }
-
-        private CachedEntry(final SVNUrl url, final String content) {
-            super();
-            this.url = url;
-            this.content = content;
-            this.children = Collections.emptyMap();
-            this.isDir = false;
-        }
-    }
-
     private final String cacheLoc;
 
-    public Cache() {
-        String location = Preferences.getCacheFolder();
-        if (location != null && !location.endsWith(File.separator)) {
-            location += File.separator;
-        }
-        cacheLoc = location;
+    protected CachedSvnClient(String cacheLoc) {
+        super();
+        this.cacheLoc = cacheLoc;
     }
 
     private File getPath(final SVNUrl url, final long version) {
@@ -76,46 +47,20 @@ public class Cache {
         return new File(path.toString());
     }
 
-    public CachedEntry fetch(final SvnClient svn, final SVNUrl url, final long version)
-            throws SVNClientException {
-        if (cacheLoc != null) {
-            final File file = getPath(url, version);
-            if (file.exists()) {
-                return load(url, file);
-            }
-        }
-
-        return cacheFault(svn, url);
-    }
-
-    private CachedEntry cacheFault(final SvnClient svn, final SVNUrl url) throws SVNClientException {
-        final ISVNInfo info = svn.getInfo(url);
-        final long version = info.getLastChangedRevision().getNumber();
-
-        final CachedEntry entry;
-        if (info.getNodeKind() == SVNNodeKind.DIR) {
-            final ISVNDirEntry[] content = svn.getList(url);
-            final Map<String, Long> entries = new HashMap<String, Long>();
-            for (final ISVNDirEntry isvnDirEntry : content) {
-                entries.put(isvnDirEntry.getPath(), isvnDirEntry.getLastChangedRevision()
-                        .getNumber());
-            }
-
-            entry = new CachedEntry(url, entries);
+    @Override
+    public SvnNode fetch(SVNUrl url, long version, boolean isDir) throws SVNClientException,
+            SVNException {
+        final File file = getPath(url, version);
+        if (file.exists()) {
+            return load(url, version, file);
         } else {
-            assert info.getNodeKind() == SVNNodeKind.FILE : url.toString();
-            final String content = svn.getStringContent(url);
-            entry = new CachedEntry(url, content);
+            final SvnNode result = super.fetch(url, version, isDir);
+            store(result, version);
+            return result;
         }
-
-        if (cacheLoc != null) {
-            store(entry, version);
-        }
-
-        return entry;
     }
 
-    private synchronized void store(final CachedEntry entry, final long version) {
+    private synchronized void store(final SvnNode entry, final long version) {
         final File file = getPath(entry.url, version);
         new File(file.getParent()).mkdirs();
 
@@ -127,10 +72,12 @@ public class Cache {
                 if (entry.isDir) {
                     writer.write(DIR);
                     writer.write('\n');
-                    for (final Map.Entry<String, Long> item : entry.children.entrySet()) {
-                        writer.write(item.getValue().toString());
+                    for (final SvnFolderEntry item : entry.children) {
+                        writer.write(item.isDir ? DIR : FILE);
                         writer.write('$');
-                        writer.write(item.getKey());
+                        writer.write(Long.toString(item.version));
+                        writer.write('$');
+                        writer.write(item.name);
                         writer.write('\n');
                     }
                 } else {
@@ -155,16 +102,16 @@ public class Cache {
 
     }
 
-    private synchronized CachedEntry load(final SVNUrl url, final File file) {
+    private synchronized SvnNode load(final SVNUrl url, final long version, final File file) {
         BufferedReader reader = null;
         try {
             reader = new BufferedReader(new InputStreamReader(new FileInputStream(file),
                     Charset.forName("UTF-8")));
             final String type = reader.readLine();
             if (DIR.equalsIgnoreCase(type)) {
-                return loadDir(url, reader);
+                return loadDir(url, version, reader);
             } else if (FILE.equalsIgnoreCase(type)) {
-                return loadFile(url, reader);
+                return loadFile(url, version, reader);
             } else {
                 throw new IllegalStateException(type + " read in " + file.toString());
             }
@@ -183,27 +130,34 @@ public class Cache {
         }
     }
 
-    private CachedEntry loadDir(final SVNUrl url, final BufferedReader reader)
+    private SvnNode loadDir(final SVNUrl url, final long version, final BufferedReader reader)
             throws NumberFormatException, IOException {
-        final Map<String, Long> entries = new HashMap<String, Long>();
+        final Collection<SvnFolderEntry> entries = new ArrayList<SvnFolderEntry>();
         String line = null;
         while ((line = reader.readLine()) != null) {
-            final int sep = line.indexOf('$');
-            final Long version = Long.parseLong(line.substring(0, sep));
-            final String name = line.substring(sep + 1);
-            entries.put(name, version);
+            final int sep1 = line.indexOf('$');
+            final String type = line.substring(0, sep1);
+
+            line = line.substring(sep1 + 1);
+
+            final int sep2 = line.indexOf('$');
+            final long entryVersion = Long.parseLong(line.substring(0, sep2));
+            final String name = line.substring(sep2 + 1);
+
+            entries.add(new SvnFolderEntry(name, entryVersion, DIR.equalsIgnoreCase(type)));
         }
 
-        return new CachedEntry(url, Collections.unmodifiableMap(entries));
+        return new SvnNode(url, version, Collections.unmodifiableCollection(entries));
     }
 
-    private CachedEntry loadFile(final SVNUrl url, final BufferedReader reader) throws IOException {
+    private SvnNode loadFile(final SVNUrl url, final long version, final BufferedReader reader)
+            throws IOException {
         final StringBuilder content = new StringBuilder();
         String line = null;
         while ((line = reader.readLine()) != null) {
             content.append(line).append('\n');
         }
 
-        return new CachedEntry(url, content.toString());
+        return new SvnNode(url, version, content.toString());
     }
 }

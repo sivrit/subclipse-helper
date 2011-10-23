@@ -35,7 +35,7 @@ import fr.sivrit.svn.helper.java.repo.ProjectDeps;
 import fr.sivrit.svn.helper.java.svn.CheckOut;
 import fr.sivrit.svn.helper.java.svn.Crawler;
 import fr.sivrit.svn.helper.java.svn.RemoteProject;
-import fr.sivrit.svn.helper.java.svn.SvnClient;
+import fr.sivrit.svn.helper.java.svn.SvnAdapter;
 import fr.sivrit.svn.helper.java.svn.Switch;
 import fr.sivrit.svn.helper.java.tools.ProjectUtils;
 
@@ -93,7 +93,7 @@ public class SvnHelperJava implements ISvnHelper {
             final Set<RemoteProject> toSwitch, final Set<RemoteProject> toCo) throws SVNException,
             SVNClientException {
 
-        final SvnClient svn = SvnClient.create();
+        final SvnAdapter svn = SvnAdapter.create();
         final Set<ProjectDeps> workspace = findTeamWorkspaceProjects();
 
         for (final RemoteProject remote : remotes) {
