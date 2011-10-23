@@ -3,6 +3,7 @@ package fr.sivrit.svn.helper.java.svn;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -10,13 +11,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 import org.tigris.subversion.subclipse.core.SVNException;
-import org.tigris.subversion.svnclientadapter.ISVNDirEntry;
-import org.tigris.subversion.svnclientadapter.ISVNInfo;
 import org.tigris.subversion.svnclientadapter.SVNClientException;
-import org.tigris.subversion.svnclientadapter.SVNNodeKind;
 import org.tigris.subversion.svnclientadapter.SVNUrl;
 
 import fr.sivrit.svn.helper.Preferences;
+import fr.sivrit.svn.helper.java.svn.Cache.CachedEntry;
 import fr.sivrit.svn.helper.java.tools.ProjectUtils;
 
 public class Crawler {
@@ -24,8 +23,9 @@ public class Crawler {
 
     private final Pattern[] exclusions;
     private final Set<SVNUrl> excludedUrls = Collections.synchronizedSet(new HashSet<SVNUrl>());
-    private final Set<SVNUrl> badUrls = Collections.synchronizedSet(new HashSet<SVNUrl>());
     private final Set<SVNUrl> alreadyChecked = Collections.synchronizedSet(new HashSet<SVNUrl>());
+
+    private final Cache cache = new Cache();
 
     public Crawler(final boolean useExclusions) {
         if (useExclusions) {
@@ -52,7 +52,7 @@ public class Crawler {
         final ExecutorService executor = Executors.newFixedThreadPool(maxThreads);
 
         for (final SVNUrl url : urls) {
-            executor.execute(new CrawlerRunnable(result, executor, url, liveActors));
+            executor.execute(new CrawlerRunnable(result, executor, url, null, liveActors));
         }
 
         while (liveActors.get() != 0) {
@@ -82,33 +82,26 @@ public class Crawler {
     }
 
     private boolean isAreadyChecked(final SVNUrl url) throws SVNException, SVNClientException {
-        if (!isDir(url)) {
-            badUrls.add(url);
-            return true;
-        }
-
         return !alreadyChecked.add(url);
-    }
-
-    private boolean isDir(final SVNUrl url) throws SVNException, SVNClientException {
-        final ISVNInfo info = SvnClient.create().getInfo(url);
-        return info.getNodeKind() == SVNNodeKind.DIR;
     }
 
     private class CrawlerRunnable implements Runnable {
         private final Set<RemoteProject> result;
         private final ExecutorService executor;
         private final SVNUrl url;
+        private Long version;
         private final AtomicInteger liveActors;
 
         private final SvnClient svn;
 
         public CrawlerRunnable(final Set<RemoteProject> result, final ExecutorService executor,
-                final SVNUrl url, final AtomicInteger liveActors) throws SVNException {
+                final SVNUrl url, final Long version, final AtomicInteger liveActors)
+                throws SVNException {
             super();
             this.result = result;
             this.executor = executor;
             this.url = url;
+            this.version = version;
             this.liveActors = liveActors;
 
             this.svn = SvnClient.create();
@@ -119,17 +112,22 @@ public class Crawler {
         @Override
         public void run() {
             try {
-                final ISVNDirEntry[] entries = svn.getList(url);
+                if (version == null) {
+                    version = svn.getInfo(url).getLastChangedRevision().getNumber();
+                }
 
-                final RemoteProject project = identifyProject(entries);
+                final CachedEntry entry = cache.fetch(svn, url, version);
+                assert entry.isDir : url.toString();
+
+                final RemoteProject project = identifyProject(entry.children);
                 if (project == null) {
-                    for (final ISVNDirEntry entry : entries) {
-                        if (entry.getNodeKind() == SVNNodeKind.DIR) {
-                            final SVNUrl newUrl = url.appendPath(entry.getPath());
-
+                    for (final Map.Entry<String, Long> child : entry.children.entrySet()) {
+                        final SVNUrl newUrl = url.appendPath(child.getKey());
+                        final CachedEntry childEntry = cache.fetch(svn, newUrl, child.getValue());
+                        if (childEntry.isDir) {
                             if (!isExcluded(newUrl) && !isAreadyChecked(newUrl)) {
                                 executor.execute(new CrawlerRunnable(result, executor, newUrl,
-                                        liveActors));
+                                        child.getValue(), liveActors));
                             }
                         }
                     }
@@ -150,51 +148,56 @@ public class Crawler {
             }
         }
 
-        private RemoteProject identifyProject(final ISVNDirEntry[] entries)
+        private RemoteProject identifyProject(final Map<String, Long> entries)
                 throws SVNClientException {
-            for (final ISVNDirEntry entry : entries) {
-                if (entry.getNodeKind() == SVNNodeKind.FILE && ".project".equals(entry.getPath())) {
-                    final RemoteProject project = new RemoteProject(url);
-                    fillProjectInfo(project, url.appendPath(entry.getPath()));
-                    fillPluginInfo(project, entries);
-                    return project;
+            for (final Map.Entry<String, Long> entry : entries.entrySet()) {
+                if (".project".equals(entry.getKey())) {
+                    final SVNUrl entryURL = url.appendPath(entry.getKey());
+                    final CachedEntry content = cache.fetch(svn, entryURL, entry.getValue());
+                    if (!content.isDir) {
+                        final RemoteProject project = new RemoteProject(url);
+                        fillProjectInfo(project, content);
+                        fillPluginInfo(project, entries);
+                        return project;
+                    }
                 }
             }
 
             return null;
         }
 
-        private void fillProjectInfo(final RemoteProject project, final SVNUrl projectFile)
+        private void fillProjectInfo(final RemoteProject project, final CachedEntry content)
                 throws SVNClientException {
             try {
-                project.setName(ProjectUtils.findProjectName(svn.getContent(projectFile)));
+                project.setName(ProjectUtils.findProjectName(content.content));
             } catch (final IOException e) {
                 throw new SVNClientException(e);
             }
         }
 
-        private void fillPluginInfo(final RemoteProject project, final ISVNDirEntry[] entries)
+        private void fillPluginInfo(final RemoteProject project, final Map<String, Long> entries)
                 throws SVNClientException {
-            for (final ISVNDirEntry entry : entries) {
-                if (entry.getNodeKind() == SVNNodeKind.DIR && "META-INF".equals(entry.getPath())) {
-                    final SVNUrl metaInfUrl = url.appendPath(entry.getPath());
-                    final ISVNDirEntry[] metaInfEntries = svn.getList(metaInfUrl);
-
-                    for (final ISVNDirEntry metaEntry : metaInfEntries) {
-                        if (metaEntry.getNodeKind() == SVNNodeKind.FILE
-                                && "MANIFEST.MF".equals(metaEntry.getPath())) {
-                            fillPluginInfo(project, metaInfUrl.appendPath(metaEntry.getPath()));
+            for (final Map.Entry<String, Long> entry : entries.entrySet()) {
+                if ("META-INF".equals(entry.getKey())) {
+                    final SVNUrl metaInfUrl = url.appendPath(entry.getKey());
+                    final CachedEntry content = cache.fetch(svn, metaInfUrl, entry.getValue());
+                    if (content.isDir) {
+                        for (final Map.Entry<String, Long> metaEntry : content.children.entrySet()) {
+                            if ("MANIFEST.MF".equals(metaEntry.getKey())) {
+                                final SVNUrl manifestUrl = metaInfUrl
+                                        .appendPath(metaEntry.getKey());
+                                final CachedEntry manifest = cache.fetch(svn, manifestUrl,
+                                        metaEntry.getValue());
+                                if (!manifest.isDir) {
+                                    project.setPlugin(ProjectUtils.findPluginName(manifest.content));
+                                    ProjectUtils.fillFromManifest(project,
+                                            ProjectUtils.splitLines(manifest.content));
+                                }
+                            }
                         }
                     }
                 }
             }
-        }
-
-        private void fillPluginInfo(final RemoteProject project, final SVNUrl manifestFile)
-                throws SVNClientException {
-            final String content = svn.getStringContent(manifestFile);
-            project.setPlugin(ProjectUtils.findPluginName(content));
-            ProjectUtils.fillFromManifest(project, ProjectUtils.splitLines(content));
         }
     }
 }

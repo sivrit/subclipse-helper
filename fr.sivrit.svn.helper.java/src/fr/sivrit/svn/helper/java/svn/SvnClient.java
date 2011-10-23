@@ -28,7 +28,12 @@ public final class SvnClient {
     }
 
     public ISVNDirEntry[] getList(final SVNUrl svnUrl) throws SVNClientException {
-        return adapter.getList(svnUrl, SVNRevision.HEAD, false);
+        return getList(svnUrl, SVNRevision.HEAD);
+    }
+
+    public ISVNDirEntry[] getList(final SVNUrl svnUrl, final SVNRevision rev)
+            throws SVNClientException {
+        return adapter.getList(svnUrl, rev, false);
     }
 
     public ISVNInfo getInfo(final SVNUrl svnUrl) throws SVNClientException {
@@ -50,7 +55,7 @@ public final class SvnClient {
             final StringBuilder sb = new StringBuilder();
             String line = null;
             while ((line = reader.readLine()) != null) {
-                sb.append(line);
+                sb.append(line).append('\n');
             }
 
             return sb.toString();

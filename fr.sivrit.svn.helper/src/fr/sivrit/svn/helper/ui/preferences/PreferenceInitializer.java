@@ -1,5 +1,7 @@
 package fr.sivrit.svn.helper.ui.preferences;
 
+import java.io.File;
+
 import org.eclipse.core.runtime.preferences.AbstractPreferenceInitializer;
 import org.eclipse.jface.preference.IPreferenceStore;
 
@@ -33,5 +35,8 @@ public class PreferenceInitializer extends AbstractPreferenceInitializer {
         store.setDefault(Preferences.P_TRANSFER_FROM_WS, true);
 
         store.setDefault(Preferences.P_ENABLE_DEBUG, false);
+
+        store.setDefault(Preferences.P_CACHE_FOLDER, System.getProperty("user.home")
+                + File.separator + ".svnHelperCache");
     }
 }

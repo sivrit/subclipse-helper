@@ -1,5 +1,6 @@
 package fr.sivrit.svn.helper;
 
+import org.apache.commons.lang.StringUtils;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.tigris.subversion.svnclientadapter.SVNUrl;
 
@@ -67,6 +68,11 @@ public final class Preferences {
      */
     public static final String P_ENABLE_DEBUG = "enableDebugInformation";
 
+    /**
+     * Where to store the cache. NULL => no cache
+     */
+    public static final String P_CACHE_FOLDER = "cacheFolder";
+
     public static String getPreferredImplementation() {
         final AbstractUIPlugin plugin = Activator.getPlugin();
         return plugin.getPreferenceStore().getString(P_PREFERRED_IMPLEMENTATION);
@@ -126,5 +132,11 @@ public final class Preferences {
     public static boolean getTransferFromWorkingSets() {
         final AbstractUIPlugin plugin = Activator.getPlugin();
         return plugin.getPreferenceStore().getBoolean(P_TRANSFER_FROM_WS);
+    }
+
+    public static String getCacheFolder() {
+        final AbstractUIPlugin plugin = Activator.getPlugin();
+        final String result = plugin.getPreferenceStore().getString(P_CACHE_FOLDER);
+        return StringUtils.isBlank(result) ? null : StringUtils.trim(result);
     }
 }

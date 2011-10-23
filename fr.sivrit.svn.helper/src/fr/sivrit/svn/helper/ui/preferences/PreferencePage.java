@@ -4,6 +4,7 @@ import org.eclipse.jface.preference.BooleanFieldEditor;
 import org.eclipse.jface.preference.ComboFieldEditor;
 import org.eclipse.jface.preference.FieldEditorPreferencePage;
 import org.eclipse.jface.preference.IntegerFieldEditor;
+import org.eclipse.jface.preference.StringFieldEditor;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
 
@@ -60,6 +61,9 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
         addField(new BooleanFieldEditor(Preferences.P_TRANSFER_FROM_WS,
                 "Remove projects from existing Working Sets before adding them to new ones",
                 getFieldEditorParent()));
+
+        addField(new StringFieldEditor(Preferences.P_CACHE_FOLDER,
+                "Folder where the cache will be stored", getFieldEditorParent()));
 
     }
 
