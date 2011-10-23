@@ -1,5 +1,6 @@
 package fr.sivrit.svn.helper.java;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -12,9 +13,14 @@ import java.util.Set;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.IAdaptable;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.jdt.internal.ui.packageview.PackageExplorerPart;
 import org.eclipse.jdt.ui.JavaUI;
 import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.dialogs.ProgressMonitorDialog;
+import org.eclipse.jface.operation.IRunnableWithProgress;
 import org.eclipse.team.core.RepositoryProvider;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkingSet;
@@ -30,6 +36,7 @@ import org.tigris.subversion.svnclientadapter.SVNClientException;
 import org.tigris.subversion.svnclientadapter.SVNUrl;
 
 import fr.sivrit.svn.helper.ISvnHelper;
+import fr.sivrit.svn.helper.Logger;
 import fr.sivrit.svn.helper.Preferences;
 import fr.sivrit.svn.helper.java.repo.ProjectDeps;
 import fr.sivrit.svn.helper.java.svn.CheckOut;
@@ -45,13 +52,30 @@ public class SvnHelperJava implements ISvnHelper {
     @Override
     public boolean checkoutBranch(final ISVNRepositoryLocation repo, final SVNUrl[] svnUrls) {
 
-        final Crawler crawler = new Crawler(true);
+        final Set<RemoteProject> svnProjects = new HashSet<RemoteProject>();
 
-        final Set<RemoteProject> svnProjects;
+        final ProgressMonitorDialog progress = new ProgressMonitorDialog(null);
         try {
-            svnProjects = crawler.findProjects(svnUrls);
-        } catch (final SVNException e) {
-            e.printStackTrace();
+            progress.run(true, true, new IRunnableWithProgress() {
+
+                @Override
+                public void run(final IProgressMonitor monitor) throws InvocationTargetException,
+                        InterruptedException {
+                    final Crawler crawler = new Crawler(SubMonitor.convert(monitor), true);
+
+                    try {
+                        svnProjects.addAll(crawler.findProjects(svnUrls));
+                    } catch (final SVNException e) {
+                        Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
+                        return;
+                    }
+                }
+            });
+        } catch (InvocationTargetException e) {
+            Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
+            return false;
+        } catch (InterruptedException e) {
+            Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
             return false;
         }
 
@@ -60,10 +84,10 @@ public class SvnHelperJava implements ISvnHelper {
         try {
             sortOut(svnProjects, toSwitch, toCo);
         } catch (SVNException e) {
-            e.printStackTrace();
+            Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
             return false;
         } catch (SVNClientException e) {
-            e.printStackTrace();
+            Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
             return false;
         }
 
@@ -86,7 +110,6 @@ public class SvnHelperJava implements ISvnHelper {
         Switch.run(toSwitch);
 
         return true;
-
     }
 
     private void sortOut(final Collection<RemoteProject> remotes,
@@ -150,6 +173,12 @@ public class SvnHelperJava implements ISvnHelper {
         } catch (final SVNException e) {
             e.printStackTrace();
             return false;
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+            return false;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            return false;
         }
 
         // Confirm the operation
@@ -165,8 +194,7 @@ public class SvnHelperJava implements ISvnHelper {
 
         if (Preferences.getSwitchPerspective()) {
             // Show the Java perspective, the package explorer and witch to a
-            // view
-            // by working sets.
+            // view by working sets.
             final IWorkbench workbench = PlatformUI.getWorkbench();
             try {
                 workbench.showPerspective(JavaUI.ID_PERSPECTIVE,
@@ -281,35 +309,54 @@ public class SvnHelperJava implements ISvnHelper {
      * @param urls
      * @return
      * @throws SVNException
+     * @throws InvocationTargetException
+     * @throws InterruptedException
      */
     private Map<String, Collection<IProject>> resolveWorkingSetFromSvn(final SVNUrl[] urls)
-            throws SVNException {
+            throws SVNException, InvocationTargetException, InterruptedException {
         final boolean useExclusions = Preferences.getApplyOnWokingSet();
 
         final Set<ProjectDeps> workspace = findTeamWorkspaceProjects();
 
         final Map<String, Collection<IProject>> newWS = new HashMap<String, Collection<IProject>>();
 
-        for (final SVNUrl url : urls) {
+        final ProgressMonitorDialog progress = new ProgressMonitorDialog(null);
+        progress.run(true, true, new IRunnableWithProgress() {
+            @Override
+            public void run(final IProgressMonitor monitor) throws InvocationTargetException,
+                    InterruptedException {
+                final SubMonitor subMonitor = SubMonitor.convert(monitor);
+                subMonitor.setWorkRemaining(urls.length);
 
-            final String wsName = url.getLastPathSegment();
-            final List<IProject> wsProjects = new ArrayList<IProject>();
+                for (final SVNUrl url : urls) {
+                    subMonitor.setTaskName("Resolving projects in " + url.toString() + "...");
 
-            final Set<RemoteProject> svnProjects = new Crawler(useExclusions)
-                    .findProjects(new SVNUrl[] { url });
-            for (final RemoteProject svnProject : svnProjects) {
-                for (final ProjectDeps local : workspace) {
-                    if (ProjectDeps.doMatch(svnProject, local)) {
-                        wsProjects.add(ProjectUtils.findWorkspaceProject(local.getName()));
-                        break;
+                    final String wsName = url.getLastPathSegment();
+                    final List<IProject> wsProjects = new ArrayList<IProject>();
+
+                    final Set<RemoteProject> svnProjects;
+                    try {
+                        svnProjects = new Crawler(subMonitor.newChild(1,
+                                SubMonitor.SUPPRESS_BEGINTASK), useExclusions)
+                                .findProjects(new SVNUrl[] { url });
+                    } catch (final SVNException e) {
+                        throw new InvocationTargetException(e);
+                    }
+                    for (final RemoteProject svnProject : svnProjects) {
+                        for (final ProjectDeps local : workspace) {
+                            if (ProjectDeps.doMatch(svnProject, local)) {
+                                wsProjects.add(ProjectUtils.findWorkspaceProject(local.getName()));
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!svnProjects.isEmpty()) {
+                        newWS.put(wsName, wsProjects);
                     }
                 }
             }
-
-            if (!svnProjects.isEmpty()) {
-                newWS.put(wsName, wsProjects);
-            }
-        }
+        });
 
         return newWS;
     }

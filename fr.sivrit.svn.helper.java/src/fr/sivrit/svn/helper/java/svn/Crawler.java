@@ -10,6 +10,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.SubMonitor;
 import org.tigris.subversion.subclipse.core.SVNException;
 import org.tigris.subversion.svnclientadapter.SVNClientException;
 import org.tigris.subversion.svnclientadapter.SVNUrl;
@@ -20,13 +23,18 @@ import fr.sivrit.svn.helper.java.tools.ProjectUtils;
 public class Crawler {
     private final static Pattern[] NO_EXCLUSIONS = new Pattern[0];
 
+    private final SubMonitor monitor;
+    private final AtomicInteger totalActors = new AtomicInteger(0);
+
     private final Pattern[] exclusions;
     private final Set<SVNUrl> excludedUrls = Collections.synchronizedSet(new HashSet<SVNUrl>());
     private final Set<SVNUrl> alreadyChecked = Collections.synchronizedSet(new HashSet<SVNUrl>());
 
     private final SvnClient client = SvnClient.createClient();
 
-    public Crawler(final boolean useExclusions) {
+    public Crawler(final SubMonitor monitor, final boolean useExclusions) {
+        this.monitor = monitor == null ? SubMonitor.convert(new NullProgressMonitor()) : monitor;
+
         if (useExclusions) {
             final String[] exclusionsStr = Preferences.getExclusions();
             exclusions = new Pattern[exclusionsStr.length];
@@ -38,11 +46,13 @@ public class Crawler {
         }
     }
 
-    public Set<RemoteProject> findProjects(final SVNUrl[] urls) throws SVNException {
+    public Set<RemoteProject> findProjects(final SVNUrl[] urls) throws SVNException,
+            InterruptedException {
         return parallelFindProjects(urls);
     }
 
-    public Set<RemoteProject> parallelFindProjects(final SVNUrl[] urls) throws SVNException {
+    public Set<RemoteProject> parallelFindProjects(final SVNUrl[] urls) throws SVNException,
+            InterruptedException {
         final Set<RemoteProject> result = Collections.synchronizedSet(new HashSet<RemoteProject>());
 
         final AtomicInteger liveActors = new AtomicInteger(0);
@@ -54,13 +64,19 @@ public class Crawler {
             executor.execute(new CrawlerRunnable(result, executor, liveActors, url));
         }
 
-        while (liveActors.get() != 0) {
-            synchronized (this) {
-                try {
-                    this.wait(1000);
-                } catch (final InterruptedException e) {
-                    Thread.interrupted();
+        monitor.beginTask("Looking for projects...", IProgressMonitor.UNKNOWN);
+        synchronized (this) {
+            while (liveActors.get() != 0) {
+                if (monitor.isCanceled()) {
+                    executor.shutdownNow();
+                    throw new InterruptedException();
                 }
+
+                final int current = liveActors.get();
+                final int total = totalActors.get();
+                monitor.subTask("Progress [" + (total - current) + "/" + total + "]");
+
+                this.wait(1000);
             }
         }
 
@@ -103,6 +119,7 @@ public class Crawler {
             this.liveActors = liveActors;
 
             liveActors.incrementAndGet();
+            totalActors.incrementAndGet();
         }
 
         public CrawlerRunnable(final Set<RemoteProject> result, final ExecutorService executor,
@@ -116,6 +133,7 @@ public class Crawler {
             this.liveActors = liveActors;
 
             liveActors.incrementAndGet();
+            totalActors.incrementAndGet();
         }
 
         @Override
