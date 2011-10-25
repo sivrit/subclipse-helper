@@ -116,30 +116,34 @@ public class SvnHelperJava implements ISvnHelper {
             final Set<RemoteProject> toSwitch, final Set<RemoteProject> toCo) throws SVNException,
             SVNClientException {
 
-        final SvnAdapter svn = SvnAdapter.create();
-        final Set<ProjectDeps> workspace = findTeamWorkspaceProjects();
+        final SvnAdapter svn = SvnAdapter.borrow();
+        try {
+            final Set<ProjectDeps> workspace = findTeamWorkspaceProjects();
 
-        for (final RemoteProject remote : remotes) {
-            ProjectDeps local = null;
-            for (final ProjectDeps existing : workspace) {
-                if (ProjectDeps.doMatch(existing, remote)) {
-                    local = existing;
-                    break;
+            for (final RemoteProject remote : remotes) {
+                ProjectDeps local = null;
+                for (final ProjectDeps existing : workspace) {
+                    if (ProjectDeps.doMatch(existing, remote)) {
+                        local = existing;
+                        break;
+                    }
+                }
+
+                if (local == null) {
+                    toCo.add(remote);
+                } else {
+                    final IProject iproj = ProjectUtils.findWorkspaceProject(local.getName());
+                    assert iproj != null : local.getName();
+
+                    final ISVNStatus status = svn.getStatus(iproj.getLocation().toFile());
+
+                    if (!remote.getUrl().equals(status.getUrl())) {
+                        toSwitch.add(remote);
+                    }
                 }
             }
-
-            if (local == null) {
-                toCo.add(remote);
-            } else {
-                final IProject iproj = ProjectUtils.findWorkspaceProject(local.getName());
-                assert iproj != null : local.getName();
-
-                final ISVNStatus status = svn.getStatus(iproj.getLocation().toFile());
-
-                if (!remote.getUrl().equals(status.getUrl())) {
-                    toSwitch.add(remote);
-                }
-            }
+        } finally {
+            SvnAdapter.release(svn);
         }
     }
 

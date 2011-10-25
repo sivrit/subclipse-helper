@@ -30,29 +30,35 @@ public class SvnClient {
     }
 
     public SvnNode fetch(final SVNUrl url) throws SVNClientException, SVNException {
-        final SvnAdapter svn = SvnAdapter.create();
+        final SvnAdapter svn = SvnAdapter.borrow();
+        try {
+            final ISVNInfo info = svn.getInfo(url);
+            final long version = info.getLastChangedRevision().getNumber();
 
-        final ISVNInfo info = svn.getInfo(url);
-        final long version = info.getLastChangedRevision().getNumber();
-
-        return fetch(url, version, info.getNodeKind() == SVNNodeKind.DIR);
+            return fetch(url, version, info.getNodeKind() == SVNNodeKind.DIR);
+        } finally {
+            SvnAdapter.release(svn);
+        }
     }
 
     public SvnNode fetch(final SVNUrl url, final long version, final boolean isDir)
             throws SVNClientException, SVNException {
-        final SvnAdapter svn = SvnAdapter.create();
+        final SvnAdapter svn = SvnAdapter.borrow();
+        try {
+            if (isDir) {
+                final ISVNDirEntry[] content = svn.getList(url);
+                final Collection<SvnFolderEntry> entries = new ArrayList<SvnFolderEntry>();
+                for (final ISVNDirEntry isvnDirEntry : content) {
+                    entries.add(new SvnFolderEntry(isvnDirEntry));
+                }
 
-        if (isDir) {
-            final ISVNDirEntry[] content = svn.getList(url);
-            final Collection<SvnFolderEntry> entries = new ArrayList<SvnFolderEntry>();
-            for (final ISVNDirEntry isvnDirEntry : content) {
-                entries.add(new SvnFolderEntry(isvnDirEntry));
+                return new SvnNode(url, version, entries);
+            } else {
+                final String content = svn.getStringContent(url);
+                return new SvnNode(url, version, content);
             }
-
-            return new SvnNode(url, version, entries);
-        } else {
-            final String content = svn.getStringContent(url);
-            return new SvnNode(url, version, content);
+        } finally {
+            SvnAdapter.release(svn);
         }
     }
 }

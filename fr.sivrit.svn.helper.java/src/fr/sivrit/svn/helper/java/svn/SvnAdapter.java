@@ -5,6 +5,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.LinkedBlockingDeque;
 
 import org.tigris.subversion.subclipse.core.SVNException;
 import org.tigris.subversion.subclipse.core.SVNProviderPlugin;
@@ -17,11 +19,27 @@ import org.tigris.subversion.svnclientadapter.SVNRevision;
 import org.tigris.subversion.svnclientadapter.SVNUrl;
 
 public final class SvnAdapter {
-    public static SvnAdapter create() throws SVNException {
-        return new SvnAdapter();
+    // Creating many ISVNClientAdapter seems to cause trouble (RA layer
+    // failures, svn server not found). Some resources might not get cleaned up.
+    // So we will try to create a reasonable (for a certain value of reasonable)
+    // number of them.
+    private static final BlockingDeque<SvnAdapter> pool = new LinkedBlockingDeque<SvnAdapter>();
+
+    public static SvnAdapter borrow() throws SVNException {
+        final SvnAdapter adapter = pool.pollLast();
+        if (adapter == null) {
+            return new SvnAdapter();
+        } else {
+            return adapter;
+        }
     }
 
-    final ISVNClientAdapter adapter;
+    public static void release(final SvnAdapter adapter) {
+        assert adapter != null;
+        pool.offerLast(adapter);
+    }
+
+    private final ISVNClientAdapter adapter;
 
     private SvnAdapter() throws SVNException {
         adapter = SVNProviderPlugin.getPlugin().getSVNClient();
