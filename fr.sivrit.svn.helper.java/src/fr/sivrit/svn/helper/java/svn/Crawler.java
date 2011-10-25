@@ -64,7 +64,7 @@ public class Crawler {
             executor.execute(new CrawlerRunnable(result, executor, liveActors, url));
         }
 
-        monitor.beginTask("Looking for projects...", IProgressMonitor.UNKNOWN);
+        monitor.setWorkRemaining(IProgressMonitor.UNKNOWN);
         synchronized (this) {
             while (liveActors.get() != 0) {
                 if (monitor.isCanceled()) {
@@ -74,8 +74,8 @@ public class Crawler {
 
                 final int current = liveActors.get();
                 final int total = totalActors.get();
-                monitor.subTask("Progress [" + (total - current) + "/" + total + "]");
-
+                monitor.subTask("Progress: " + (total - current) + " out of " + total);
+                monitor.worked(1);
                 this.wait(1000);
             }
         }

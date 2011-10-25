@@ -54,6 +54,9 @@ public class SvnHelperJava implements ISvnHelper {
 
         final Set<RemoteProject> svnProjects = new HashSet<RemoteProject>();
 
+        final Set<RemoteProject> toSwitch = new HashSet<RemoteProject>();
+        final Set<RemoteProject> toCo = new HashSet<RemoteProject>();
+
         final ProgressMonitorDialog progress = new ProgressMonitorDialog(null);
         try {
             progress.run(true, true, new IRunnableWithProgress() {
@@ -61,13 +64,23 @@ public class SvnHelperJava implements ISvnHelper {
                 @Override
                 public void run(final IProgressMonitor monitor) throws InvocationTargetException,
                         InterruptedException {
-                    final Crawler crawler = new Crawler(SubMonitor.convert(monitor), true);
+                    final SubMonitor subMonitor = SubMonitor.convert(monitor);
 
+                    subMonitor.setWorkRemaining(10);
+                    subMonitor.setTaskName("Looking for projects...");
+
+                    final Crawler crawler = new Crawler(subMonitor.newChild(9,
+                            SubMonitor.SUPPRESS_BEGINTASK), true);
                     try {
                         svnProjects.addAll(crawler.findProjects(svnUrls));
+
+                        subMonitor.setTaskName("Comparing projects to workspace...");
+                        sortOut(svnProjects, toSwitch, toCo,
+                                subMonitor.newChild(9, SubMonitor.SUPPRESS_BEGINTASK));
                     } catch (final SVNException e) {
-                        Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
-                        return;
+                        throw new InvocationTargetException(e);
+                    } catch (final SVNClientException e) {
+                        throw new InvocationTargetException(e);
                     }
                 }
             });
@@ -75,18 +88,6 @@ public class SvnHelperJava implements ISvnHelper {
             Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
             return false;
         } catch (InterruptedException e) {
-            Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
-            return false;
-        }
-
-        final Set<RemoteProject> toSwitch = new HashSet<RemoteProject>();
-        final Set<RemoteProject> toCo = new HashSet<RemoteProject>();
-        try {
-            sortOut(svnProjects, toSwitch, toCo);
-        } catch (SVNException e) {
-            Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
-            return false;
-        } catch (SVNClientException e) {
             Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
             return false;
         }
@@ -113,14 +114,18 @@ public class SvnHelperJava implements ISvnHelper {
     }
 
     private void sortOut(final Collection<RemoteProject> remotes,
-            final Set<RemoteProject> toSwitch, final Set<RemoteProject> toCo) throws SVNException,
-            SVNClientException {
+            final Set<RemoteProject> toSwitch, final Set<RemoteProject> toCo,
+            final SubMonitor subMonitor) throws SVNException, SVNClientException {
+
+        subMonitor.setWorkRemaining(remotes.size());
 
         final SvnAdapter svn = SvnAdapter.borrow();
         try {
             final Set<ProjectDeps> workspace = findTeamWorkspaceProjects();
 
             for (final RemoteProject remote : remotes) {
+                subMonitor.subTask(remote.getName());
+
                 ProjectDeps local = null;
                 for (final ProjectDeps existing : workspace) {
                     if (ProjectDeps.doMatch(existing, remote)) {
@@ -141,6 +146,8 @@ public class SvnHelperJava implements ISvnHelper {
                         toSwitch.add(remote);
                     }
                 }
+
+                subMonitor.worked(1);
             }
         } finally {
             SvnAdapter.release(svn);
