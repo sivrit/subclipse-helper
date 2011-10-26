@@ -12,7 +12,7 @@ import fr.sivrit.svn.helper.ISvnHelper;
 import fr.sivrit.svn.helper.Preferences;
 
 public final class SvnHelperProxy {
-    public final static String DEFAULT_IMPLEMENTATION = "scala";
+    public final static String DEFAULT_IMPLEMENTATION = "java";
     public final static String EXTENSION_POINT = "fr.sivrit.svn.helper.impl";
     public final static String EXTENSION_CLASS = "class";
     public final static String EXTENSION_NAME = "name";
