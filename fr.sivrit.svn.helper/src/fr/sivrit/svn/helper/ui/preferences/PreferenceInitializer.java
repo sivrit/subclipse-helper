@@ -33,7 +33,8 @@ public class PreferenceInitializer extends AbstractPreferenceInitializer {
         store.setDefault(Preferences.P_EXCLUDE_WS, true);
         store.setDefault(Preferences.P_SWITCH_PERSPECTIVE, true);
         store.setDefault(Preferences.P_TRANSFER_FROM_WS, true);
-
+        store.setDefault(Preferences.P_BYPASS_WS_MAPPING, false);
+        store.setDefault(Preferences.P_CONFIRM_WS_CREATION, true);
         store.setDefault(Preferences.P_ENABLE_DEBUG, false);
 
         store.setDefault(Preferences.P_CACHE_FOLDER, System.getProperty("user.home")

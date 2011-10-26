@@ -62,6 +62,12 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
                 "Remove projects from existing Working Sets before adding them to new ones",
                 getFieldEditorParent()));
 
+        addField(new BooleanFieldEditor(Preferences.P_BYPASS_WS_MAPPING,
+                "Do not ask for the name of Working Sets, deduce them from their URL",
+                getFieldEditorParent()));
+        addField(new BooleanFieldEditor(Preferences.P_CONFIRM_WS_CREATION,
+                "Confirm Working Sets creation after project discovery", getFieldEditorParent()));
+
         addField(new StringFieldEditor(Preferences.P_CACHE_FOLDER,
                 "Folder where the cache will be stored", getFieldEditorParent()));
 

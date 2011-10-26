@@ -21,6 +21,7 @@ import org.eclipse.jdt.ui.JavaUI;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.dialogs.ProgressMonitorDialog;
 import org.eclipse.jface.operation.IRunnableWithProgress;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.team.core.RepositoryProvider;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkingSet;
@@ -177,10 +178,29 @@ public class SvnHelperJava implements ISvnHelper {
     @SuppressWarnings("restriction")
     @Override
     public boolean createWorkingSets(final SVNUrl[] urls) {
+        // Map URLs to WorkingSets
+        final String[] wsNames;
+        if (Preferences.getByPassWorkingSetsMapping()) {
+            wsNames = new String[urls.length];
+            for (int i = 0; i < urls.length; i++) {
+                wsNames[i] = urls[i].getLastPathSegment();
+
+            }
+        } else {
+            final Shell shell = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell();
+            final AssignWorkingSetsDialog dialog = new AssignWorkingSetsDialog(shell,
+                    "Define Working Sets",
+                    "Please map the selected URLs to existing or new WorkingSets.", urls);
+            if (dialog.open() != 0) {
+                return false;
+            }
+            wsNames = dialog.getWs();
+        }
+
         // Find the projects to dispatch
         final Map<String, Collection<IProject>> newWS;
         try {
-            newWS = resolveWorkingSetFromSvn(urls);
+            newWS = resolveWorkingSetFromSvn(urls, wsNames);
         } catch (final SVNException e) {
             e.printStackTrace();
             return false;
@@ -193,14 +213,16 @@ public class SvnHelperJava implements ISvnHelper {
         }
 
         // Confirm the operation
-        final StringBuilder msg = new StringBuilder("The following WorkingSets will be created:\n");
-        for (final Entry<String, Collection<IProject>> entry : newWS.entrySet()) {
-            msg.append(entry.getKey()).append(" - ").append(entry.getValue().size())
-                    .append(" projects\n");
-        }
-
-        if (!MessageDialog.openQuestion(null, "Define Working Sets", msg.toString())) {
-            return false;
+        if (Preferences.getConfirmWorkingSetsCreation()) {
+            final StringBuilder msg = new StringBuilder(
+                    "The following WorkingSets will be created:\n");
+            for (final Entry<String, Collection<IProject>> entry : newWS.entrySet()) {
+                msg.append(entry.getKey()).append(" - ").append(entry.getValue().size())
+                        .append(" projects\n");
+            }
+            if (!MessageDialog.openQuestion(null, "Define Working Sets", msg.toString())) {
+                return false;
+            }
         }
 
         if (Preferences.getSwitchPerspective()) {
@@ -222,7 +244,8 @@ public class SvnHelperJava implements ISvnHelper {
         }
 
         // Create missing IWorkingSet and index all WS by name
-        final Map<String, IWorkingSet> workingSets = createWorkingSets(newWS.keySet());
+        final Map<String, IWorkingSet> workingSets = createWorkingSets(new HashSet<String>(
+                Arrays.asList(wsNames)));
 
         if (Preferences.getTransferFromWorkingSets()) {
             // Remove the projects we will dispatch from existing WS
@@ -323,8 +346,11 @@ public class SvnHelperJava implements ISvnHelper {
      * @throws InvocationTargetException
      * @throws InterruptedException
      */
-    private Map<String, Collection<IProject>> resolveWorkingSetFromSvn(final SVNUrl[] urls)
-            throws SVNException, InvocationTargetException, InterruptedException {
+    private Map<String, Collection<IProject>> resolveWorkingSetFromSvn(final SVNUrl[] urls,
+            final String[] wsNames) throws SVNException, InvocationTargetException,
+            InterruptedException {
+        assert urls.length == wsNames.length;
+
         final boolean useExclusions = Preferences.getApplyOnWokingSet();
 
         final Set<ProjectDeps> workspace = findTeamWorkspaceProjects();
@@ -339,10 +365,12 @@ public class SvnHelperJava implements ISvnHelper {
                 final SubMonitor subMonitor = SubMonitor.convert(monitor);
                 subMonitor.setWorkRemaining(urls.length);
 
-                for (final SVNUrl url : urls) {
+                for (int i = 0; i < urls.length; i++) {
+                    final SVNUrl url = urls[i];
+                    final String wsName = wsNames[i];
+
                     subMonitor.setTaskName("Resolving projects in " + url.toString() + "...");
 
-                    final String wsName = url.getLastPathSegment();
                     final List<IProject> wsProjects = new ArrayList<IProject>();
 
                     final Set<RemoteProject> svnProjects;
@@ -363,7 +391,12 @@ public class SvnHelperJava implements ISvnHelper {
                     }
 
                     if (!svnProjects.isEmpty()) {
-                        newWS.put(wsName, wsProjects);
+                        final Collection<IProject> preExistingProjects = newWS.get(wsName);
+                        if (preExistingProjects == null) {
+                            newWS.put(wsName, wsProjects);
+                        } else {
+                            preExistingProjects.addAll(wsProjects);
+                        }
                     }
                 }
             }

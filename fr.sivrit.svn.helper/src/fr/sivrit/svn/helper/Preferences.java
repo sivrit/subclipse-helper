@@ -59,6 +59,18 @@ public final class Preferences {
     public static final String P_TRANSFER_FROM_WS = "transferFromWorkingSets";
 
     /**
+     * If <code>true</code>, when defining working sets, a confirmation will be
+     * asked after projects discovery.
+     */
+    public static final String P_CONFIRM_WS_CREATION = "confirmWorkingSets";
+
+    /**
+     * If <code>true</code>, working sets names will be set automatically from
+     * their URL in the repository.
+     */
+    public static final String P_BYPASS_WS_MAPPING = "bypassWorkingSetsMapping";
+
+    /**
      * Whether {@link #P_EXCLUSIONS} is used when looking for dependencies
      */
     public static final String P_EXCLUDE_DEP = "applyExclusionsOnDep";
@@ -132,6 +144,16 @@ public final class Preferences {
     public static boolean getTransferFromWorkingSets() {
         final AbstractUIPlugin plugin = Activator.getPlugin();
         return plugin.getPreferenceStore().getBoolean(P_TRANSFER_FROM_WS);
+    }
+
+    public static boolean getByPassWorkingSetsMapping() {
+        final AbstractUIPlugin plugin = Activator.getPlugin();
+        return plugin.getPreferenceStore().getBoolean(P_BYPASS_WS_MAPPING);
+    }
+
+    public static boolean getConfirmWorkingSetsCreation() {
+        final AbstractUIPlugin plugin = Activator.getPlugin();
+        return plugin.getPreferenceStore().getBoolean(P_CONFIRM_WS_CREATION);
     }
 
     public static String getCacheFolder() {

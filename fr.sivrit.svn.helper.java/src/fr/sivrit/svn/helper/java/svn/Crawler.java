@@ -11,13 +11,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 import org.tigris.subversion.subclipse.core.SVNException;
 import org.tigris.subversion.svnclientadapter.SVNClientException;
 import org.tigris.subversion.svnclientadapter.SVNUrl;
 
+import fr.sivrit.svn.helper.Logger;
 import fr.sivrit.svn.helper.Preferences;
+import fr.sivrit.svn.helper.java.SvnHelperJava;
 import fr.sivrit.svn.helper.java.tools.ProjectUtils;
 
 public class Crawler {
@@ -171,9 +174,9 @@ public class Crawler {
                 }
 
             } catch (final SVNClientException e) {
-                e.printStackTrace();
+                Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
             } catch (final SVNException e) {
-                e.printStackTrace();
+                Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
             } finally {
                 liveActors.decrementAndGet();
 
