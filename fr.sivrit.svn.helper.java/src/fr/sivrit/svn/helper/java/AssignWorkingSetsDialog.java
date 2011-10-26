@@ -21,6 +21,7 @@ import org.eclipse.ui.IWorkingSetManager;
 import org.eclipse.ui.internal.WorkbenchPlugin;
 import org.tigris.subversion.svnclientadapter.SVNUrl;
 
+@SuppressWarnings("restriction")
 public class AssignWorkingSetsDialog extends MessageDialog {
     private final SVNUrl[] urls;
     private String[] ws;
@@ -39,7 +40,6 @@ public class AssignWorkingSetsDialog extends MessageDialog {
     protected Control createCustomArea(Composite parent) {
         final Composite composite = new Composite(parent, SWT.NONE);
 
-        @SuppressWarnings("restriction")
         final IWorkingSetManager wsManager = WorkbenchPlugin.getDefault().getWorkingSetManager();
         final Set<String> workingSets = new HashSet<String>();
         for (final IWorkingSet ws : wsManager.getWorkingSets()) {

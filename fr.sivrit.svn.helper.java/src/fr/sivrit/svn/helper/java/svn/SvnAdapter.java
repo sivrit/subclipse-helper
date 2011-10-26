@@ -19,10 +19,10 @@ import org.tigris.subversion.svnclientadapter.SVNRevision;
 import org.tigris.subversion.svnclientadapter.SVNUrl;
 
 public final class SvnAdapter {
-    // Creating many ISVNClientAdapter seems to cause trouble (RA layer
-    // failures, svn server not found). Some resources might not get cleaned up.
-    // So we will try to create a reasonable (for a certain value of reasonable)
-    // number of them.
+    // Creating many ISVNClientAdapter with JavaHL seems to cause trouble (RA
+    // layer failures, svn server not found), so we will try to create a
+    // reasonable (for a certain value of reasonable) number of them. Does not
+    // work all that well...
     private static final BlockingDeque<SvnAdapter> pool = new LinkedBlockingDeque<SvnAdapter>();
 
     public static SvnAdapter borrow() throws SVNException {
@@ -37,6 +37,10 @@ public final class SvnAdapter {
     public static void release(final SvnAdapter adapter) {
         assert adapter != null;
         pool.offerLast(adapter);
+    }
+
+    public static void clearPool() {
+        pool.clear();
     }
 
     private final ISVNClientAdapter adapter;

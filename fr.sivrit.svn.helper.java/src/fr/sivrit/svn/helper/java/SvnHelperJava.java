@@ -47,6 +47,7 @@ import fr.sivrit.svn.helper.java.svn.SvnAdapter;
 import fr.sivrit.svn.helper.java.svn.Switch;
 import fr.sivrit.svn.helper.java.tools.ProjectUtils;
 
+@SuppressWarnings("restriction")
 public class SvnHelperJava implements ISvnHelper {
     public final static String PLUGIN_ID = "fr.sivrit.svn.helper.java";
 
@@ -91,6 +92,8 @@ public class SvnHelperJava implements ISvnHelper {
         } catch (InterruptedException e) {
             Logger.log(IStatus.ERROR, SvnHelperJava.PLUGIN_ID, e);
             return false;
+        } finally {
+            SvnAdapter.clearPool();
         }
 
         final String title = svnUrls.length == 1 ? "Pull branch " + svnUrls[0]
@@ -186,7 +189,6 @@ public class SvnHelperJava implements ISvnHelper {
         throw new UnsupportedOperationException("Todo");
     }
 
-    @SuppressWarnings("restriction")
     @Override
     public boolean createWorkingSets(final SVNUrl[] urls) {
         // Map URLs to WorkingSets
@@ -323,7 +325,6 @@ public class SvnHelperJava implements ISvnHelper {
      * @return
      */
     private Map<String, IWorkingSet> createWorkingSets(final Collection<String> wsNames) {
-        @SuppressWarnings("restriction")
         final IWorkingSetManager wsManager = WorkbenchPlugin.getDefault().getWorkingSetManager();
 
         final Map<String, IWorkingSet> workingSets = new HashMap<String, IWorkingSet>();
@@ -393,7 +394,10 @@ public class SvnHelperJava implements ISvnHelper {
                                 .findProjects(new SVNUrl[] { url });
                     } catch (final SVNException e) {
                         throw new InvocationTargetException(e);
+                    } finally {
+                        SvnAdapter.clearPool();
                     }
+
                     for (final RemoteProject svnProject : svnProjects) {
                         for (final ProjectDeps local : workspace) {
                             if (ProjectDeps.doMatch(svnProject, local)) {
