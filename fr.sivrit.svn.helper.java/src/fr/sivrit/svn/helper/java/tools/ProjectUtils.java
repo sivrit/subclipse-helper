@@ -24,6 +24,7 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.SubMonitor;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -117,9 +118,10 @@ public class ProjectUtils {
         }
     }
 
-    public static Collection<ProjectDeps> findWorkspaceProjects() {
+    public static Collection<ProjectDeps> findWorkspaceProjects(final SubMonitor subMonitor) {
         final Collection<ProjectDeps> result = new ArrayList<ProjectDeps>();
         final IProject[] projects = ResourcesPlugin.getWorkspace().getRoot().getProjects();
+        subMonitor.setWorkRemaining(projects.length);
         for (final IProject project : projects) {
             final ProjectDeps deps = new ProjectDeps(project.getName(), null);
 
@@ -131,6 +133,7 @@ public class ProjectUtils {
             }
 
             result.add(deps);
+            subMonitor.worked(1);
         }
 
         return result;

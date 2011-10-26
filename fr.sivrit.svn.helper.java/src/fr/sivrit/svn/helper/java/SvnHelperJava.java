@@ -77,7 +77,7 @@ public class SvnHelperJava implements ISvnHelper {
 
                         subMonitor.setTaskName("Comparing projects to workspace...");
                         sortOut(svnProjects, toSwitch, toCo,
-                                subMonitor.newChild(9, SubMonitor.SUPPRESS_BEGINTASK));
+                                subMonitor.newChild(1, SubMonitor.SUPPRESS_BEGINTASK));
                     } catch (final SVNException e) {
                         throw new InvocationTargetException(e);
                     } catch (final SVNClientException e) {
@@ -93,12 +93,12 @@ public class SvnHelperJava implements ISvnHelper {
             return false;
         }
 
-        final String title = svnUrls.length == 1 ? "checkoutBranch: " + svnUrls[0]
-                : "checkoutBranches";
-        String msg = "Projects found: " + svnProjects.size() + "\nWill switch: " + toSwitch.size()
-                + "\nWill checkout: " + toCo.size();
+        final String title = svnUrls.length == 1 ? "Pull branch " + svnUrls[0]
+                : "Pull multiple branches";
+        String msg = "Projects found: " + svnProjects.size() + "\nProjects to switch: "
+                + toSwitch.size() + "\nProjects to checkout: " + toCo.size();
         if (svnUrls.length > 1) {
-            msg = "checkoutBranches: " + Arrays.asList(svnUrls) + "\n\n" + msg;
+            msg = "Pulling branches: " + Arrays.asList(svnUrls) + "\n\n" + msg;
         }
 
         if (!MessageDialog.openQuestion(null, title, msg)) {
@@ -118,14 +118,15 @@ public class SvnHelperJava implements ISvnHelper {
             final Set<RemoteProject> toSwitch, final Set<RemoteProject> toCo,
             final SubMonitor subMonitor) throws SVNException, SVNClientException {
 
-        subMonitor.setWorkRemaining(remotes.size());
+        subMonitor.setWorkRemaining(2);
 
         final SvnAdapter svn = SvnAdapter.borrow();
         try {
-            final Set<ProjectDeps> workspace = findTeamWorkspaceProjects();
+            final Set<ProjectDeps> workspace = findTeamWorkspaceProjects(subMonitor.newChild(1));
 
+            subMonitor.setWorkRemaining(remotes.size());
             for (final RemoteProject remote : remotes) {
-                subMonitor.subTask(remote.getName());
+                subMonitor.subTask("Processing project " + remote.getName() + "...");
 
                 ProjectDeps local = null;
                 for (final ProjectDeps existing : workspace) {
@@ -155,16 +156,26 @@ public class SvnHelperJava implements ISvnHelper {
         }
     }
 
-    private Set<ProjectDeps> findTeamWorkspaceProjects() {
+    private Set<ProjectDeps> findTeamWorkspaceProjects(final SubMonitor subMonitor) {
         final Set<ProjectDeps> result = new HashSet<ProjectDeps>();
 
-        for (final ProjectDeps deps : ProjectUtils.findWorkspaceProjects()) {
+        subMonitor.subTask("Gathering projects from workspace...");
+        subMonitor.setWorkRemaining(2);
+
+        final Collection<ProjectDeps> projects = ProjectUtils.findWorkspaceProjects(subMonitor
+                .newChild(1));
+
+        subMonitor.subTask("Filtering SVN projects...");
+        subMonitor.setWorkRemaining(projects.size());
+        for (final ProjectDeps deps : projects) {
             if (deps.getName() != null) {
                 final IProject iproject = ProjectUtils.findWorkspaceProject(deps.getName());
                 if (RepositoryProvider.getProvider(iproject, SVNProviderPlugin.getTypeId()) != null) {
                     result.add(deps);
                 }
             }
+
+            subMonitor.worked(1);
         }
 
         return result;
@@ -353,8 +364,6 @@ public class SvnHelperJava implements ISvnHelper {
 
         final boolean useExclusions = Preferences.getApplyOnWokingSet();
 
-        final Set<ProjectDeps> workspace = findTeamWorkspaceProjects();
-
         final Map<String, Collection<IProject>> newWS = new HashMap<String, Collection<IProject>>();
 
         final ProgressMonitorDialog progress = new ProgressMonitorDialog(null);
@@ -363,6 +372,10 @@ public class SvnHelperJava implements ISvnHelper {
             public void run(final IProgressMonitor monitor) throws InvocationTargetException,
                     InterruptedException {
                 final SubMonitor subMonitor = SubMonitor.convert(monitor);
+
+                subMonitor.setWorkRemaining(10);
+                final Set<ProjectDeps> workspace = findTeamWorkspaceProjects(subMonitor.newChild(1));
+
                 subMonitor.setWorkRemaining(urls.length);
 
                 for (int i = 0; i < urls.length; i++) {
