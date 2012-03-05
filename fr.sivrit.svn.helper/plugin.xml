@@ -43,4 +43,28 @@
             class="fr.sivrit.svn.helper.ui.preferences.PreferenceInitializer">
       </initializer>
    </extension>
+   <extension
+         point="org.eclipse.ui.preferenceTransfer">
+      <transfer
+           name="Subclipse Helper Preferences"
+           id="fr.sivrit.svn.helper.preferences.all">
+         <description>All preferences for Subclipse Helper</description>
+         <mapping scope="instance">
+            <entry node="fr.sivrit.svn.helper" />
+         </mapping>
+      </transfer>
+      <transfer
+           name="Subclipse Helper Exclusions"
+           id="fr.sivrit.svn.helper.preferences.all">
+         <description>Only the regular expressions Subclipse Helper uses to filter URLs</description>
+         <mapping scope="instance">
+            <entry
+                  node="fr.sivrit.svn.helper">
+               <key
+                     name="pathExclusions">
+               </key>
+            </entry>
+         </mapping>
+      </transfer>
+   </extension>
 </plugin>
