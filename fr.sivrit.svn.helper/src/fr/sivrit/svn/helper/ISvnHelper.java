@@ -8,6 +8,8 @@ import org.tigris.subversion.svnclientadapter.SVNUrl;
  * delegated
  */
 public interface ISvnHelper {
+    public final String PLUGIN_ID = "fr.sivrit.svn.helper";
+
     /**
      * @param repo
      * @param svnUrls
