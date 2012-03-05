@@ -228,7 +228,7 @@ public class SvnHelperJava implements ISvnHelper {
         // Confirm the operation
         if (Preferences.getConfirmWorkingSetsCreation()) {
             final StringBuilder msg = new StringBuilder(
-                    "The following WorkingSets will be created:\n");
+                    "The following WorkingSets will be defined:\n");
             for (final Entry<String, Collection<IProject>> entry : newWS.entrySet()) {
                 msg.append(entry.getKey()).append(" - ").append(entry.getValue().size())
                         .append(" projects\n");
