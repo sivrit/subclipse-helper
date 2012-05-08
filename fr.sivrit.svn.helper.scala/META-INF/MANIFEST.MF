@@ -4,22 +4,22 @@ Bundle-Name: fr.sivrit.svn.helper.scala
 Bundle-SymbolicName: fr.sivrit.svn.helper.scala;singleton:=true
 Bundle-Version: 0.0.1.qualifier
 Bundle-License: http://www.eclipse.org/legal/epl-v10.html
-Require-Bundle: org.eclipse.core.runtime,
+Require-Bundle: org.apache.commons.lang,
+ org.eclipse.core.runtime,
  org.eclipse.core.resources,
  org.eclipse.jface,
  org.eclipse.team.core,
+ org.eclipse.team.ui,
  org.eclipse.jdt.core,
+ org.eclipse.jdt.ui,
  org.eclipse.help,
  org.eclipse.ui.workbench,
  org.eclipse.ui.workbench.texteditor,
- org.eclipse.jdt.ui,
- org.eclipse.team.ui,
- org.tigris.subversion.clientadapter.javahl,
  org.tigris.subversion.subclipse.core,
  org.tigris.subversion.subclipse.ui,
- fr.sivrit.svn.helper;bundle-version="0.0.0",
+ fr.sivrit.svn.helper,
  scala-library;bundle-version="2.9.0";resolution:=optional,
- org.scala-ide.scala.library;bundle-version="2.9.0";resolution:=optional
+ org.scala-ide.scala.library;resolution:=optional
 Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-1.6
 Bundle-ClassPath: bin/

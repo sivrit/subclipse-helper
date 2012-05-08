@@ -2,9 +2,6 @@
 <projectDescription>
 	<name>fr.sivrit.svn.helper.scala</name>
 	<comment></comment>
-	<projects>
-		<project>fr.sivrit.scalatest.runtime</project>
-	</projects>
 	<buildSpec>
 		<buildCommand>
 			<name>org.eclipse.pde.ManifestBuilder</name>

@@ -7,69 +7,99 @@ import scala.actors.Actor
 import scala.io.Source
 import scala.util.matching.Regex
 import scala.xml.Elem
+import scala.xml.XML
+import org.eclipse.core.runtime.SubMonitor
+import org.eclipse.core.runtime.IProgressMonitor
+import scala.actors.TIMEOUT
 
-object SvnCrawler {
+class SvnCrawler(monitor: SubMonitor, useExclusions: Boolean) {
   import scala.actors.Actor._
 
   val debug: Boolean = "true".equalsIgnoreCase(System.getProperty("SvnCrawler.debug"))
-
   private def trace(msg: String) = if (debug) System.err.println(msg)
 
-  def findProjects(urls: Array[SVNUrl], exclusions: List[Regex]): Set[(ProjectDeps, SVNUrl)] =
-    parallelFindProjects(urls, exclusions)
+  val client = SvnClient.createClient();
 
-  private def parallelFindProjects(urls: Array[SVNUrl], exclusions: List[Regex]): Set[(ProjectDeps, SVNUrl)] = {
+  val exclusions: Array[Regex] = if (useExclusions) Preferences.getExclusions.map { pattern => pattern.r } else Array[Regex]()
+  var excludedUrls = Set[SVNUrl]()
+  var alreadyChecked = Set[SVNUrl]()
+
+  def findProjects(urls: Array[SVNUrl]): Set[(ProjectDeps, SVNUrl)] =
+    parallelFindProjects(urls)
+
+  private def parallelFindProjects(urls: Array[SVNUrl]): Set[(ProjectDeps, SVNUrl)] = {
     var result = Set[(ProjectDeps, SVNUrl)]()
 
-    var excludedUrls = Set[SVNUrl]()
-    var badUrls = Set[SVNUrl]()
-    var alreadyChecked = Set[SVNUrl]()
-
-    var todo = urls.toList
+    var todo = for (url <- urls.toList) yield (url, null.asInstanceOf[SvnFolderEntry])
     var liveActors = 0
+    var totalWork = todo.size
+    var processed = 0
 
     trace("Base urls: " + todo)
 
+    monitor.setWorkRemaining(IProgressMonitor.UNKNOWN);
     val maxThreads = Preferences.getMaxCrawlerRequests()
     while (liveActors > 0 || !todo.isEmpty) {
+      if (monitor.isCanceled()) {
+        throw new InterruptedException();
+      }
+
       todo match {
-        case url :: more if liveActors < maxThreads => {
-          if (isExcluded(url, exclusions)) {
+        case (url, entry) :: more if liveActors < maxThreads => {
+          if (isExcluded(url)) {
             excludedUrls += url
-          } else if (!isDir(url)) {
-            badUrls += url
           } else if (!alreadyChecked.contains(url)) {
             alreadyChecked += url
             trace("spawn: " + url)
-            startCrawler(url, SvnClient.getSvnClient, self)
+            startCrawler(entry, url, self)
             liveActors += 1
           }
           todo = more
         }
         case _ => {
-          receive {
-            case item: (ProjectDeps, SVNUrl) => trace("receive project: " + item._2); result = result + item
-            case urls: List[SVNUrl] => trace("receive todo: " + urls); todo = urls ++ todo
+          val timeout = receiveWithin(1000) {
+            case item: (ProjectDeps, SVNUrl) => trace("receive project: " + item._2); result += item
+            case urls: List[(SVNUrl, SvnFolderEntry)] => trace("receive todo: " + urls); totalWork += urls.size; todo ++= urls
             case e: Exception => trace("receive failure: " + e.getMessage); e.printStackTrace()
+            case TIMEOUT => TIMEOUT
           }
-          liveActors -= 1
+          if (timeout != TIMEOUT) {
+            liveActors -= 1
+            processed += 1
+          }
         }
       }
+
+      monitor.subTask("[" + liveActors + "] Progress: " + (totalWork - processed) + " out of " + totalWork);
+      monitor.worked(1);
     }
+
     result
   }
 
-  private def startCrawler(url: SVNUrl, svn: SvnClient, parent: Actor): Unit = {
+  private def startCrawler(entry: SvnFolderEntry, url: SVNUrl, parent: Actor): Unit = {
     actor {
       trace("startCrawler(" + url + ")")
       try {
-        val entries: Array[ISVNDirEntry] = svn.getList(url)
-        identifyProject(url, entries, svn) match {
+        val node =
+          if (entry == null) {
+            client.fetch(url);
+          } else {
+            assert(entry.isDir, url.toString)
+            client.fetch(url, entry.version, entry.isDir);
+          }
+
+        if (node == null) throw new IllegalArgumentException("No node for " + url);
+        if (!node.isInstanceOf[SvnDir]) throw new IllegalArgumentException(url + " is not a directory!");
+
+        val entries: Set[SvnFolderEntry] = node.asInstanceOf[SvnDir].children
+        identifyProject(url, entries) match {
           case Some(project) => trace("startCrawler(" + url + ") => project " + project.name); parent ! (project, url)
           case None =>
-            trace("startCrawler(" + url + ") => dir "); parent ! entries.foldLeft(List.empty[SVNUrl]) { (results, entry) =>
-              if (entry.getNodeKind == SVNNodeKind.DIR)
-                url.appendPath(entry.getPath) :: results
+            trace("startCrawler(" + url + ") => dir ");
+            parent ! entries.foldLeft(List.empty[(SVNUrl, SvnFolderEntry)]) { (results, entry) =>
+              if (entry.isDir)
+                (url.appendPath(entry.name), entry) :: results
               else
                 results
             }
@@ -80,29 +110,30 @@ object SvnCrawler {
     }
   }
 
-  private def identifyProject(url: SVNUrl, entries: Array[ISVNDirEntry], svn: SvnClient): Option[ProjectDeps] = {
-    entries.find { entry => entry.getNodeKind == SVNNodeKind.FILE && ".project".equals(entry.getPath()) } match {
+  private def identifyProject(url: SVNUrl, entries: Set[SvnFolderEntry]): Option[ProjectDeps] = {
+    entries.find { entry => !entry.isDir && ".project" == entry.name } match {
       case Some(entry) => {
-        val (name, projectDeps) = getProjectInfo(url.appendPath(entry.getPath), svn)
-        val (plugin, pluginDeps) = findPluginInfo(url, svn, entries)
+        val (name, projectDeps) = getProjectInfo(client.fetch(url.appendPath(entry.name), entry.version, entry.isDir))
+        val (plugin, pluginDeps) = findPluginInfo(url, entries)
         Some(new ProjectDeps(name, plugin, projectDeps, pluginDeps))
       }
       case None => None;
     }
   }
 
-  private def getProjectInfo(projectFile: SVNUrl, svn: SvnClient): (String, Set[String]) = {
-    val description: Elem = svn.getXMLContent(projectFile)
+  private def getProjectInfo(projectFile: SvnNode): (String, Set[String]) = {
+    val description: Elem = XML.loadString(projectFile.asInstanceOf[SvnFile].content)
     (ProjectDeps.findProjectName(description), Set.empty)
   }
 
-  private def findPluginInfo(projectUrl: SVNUrl, svn: SvnClient, entries: Array[ISVNDirEntry]): (String, Set[String]) = {
-    entries.find { entry => entry.getNodeKind == SVNNodeKind.DIR && "META-INF".equals(entry.getPath) } match {
+  private def findPluginInfo(projectUrl: SVNUrl, entries: Set[SvnFolderEntry]): (String, Set[String]) = {
+    entries.find { entry => entry.isDir && "META-INF" == entry.name } match {
       case Some(schemaInfDir) => {
-        val metaInfUrl = projectUrl.appendPath(schemaInfDir.getPath)
-        val metaInfEntries = svn.getList(metaInfUrl)
-        metaInfEntries.find { entry => entry.getNodeKind == SVNNodeKind.FILE && "MANIFEST.MF".equals(entry.getPath) } match {
-          case Some(manifestEntry) => getPluginInfo(metaInfUrl.appendPath(manifestEntry.getPath), svn)
+        val metaInfUrl = projectUrl.appendPath(schemaInfDir.name)
+        val metaInfEntries: SvnDir = client.fetch(metaInfUrl, schemaInfDir.version, schemaInfDir.isDir).asInstanceOf[SvnDir]
+        metaInfEntries.children.find { entry => !entry.isDir && "MANIFEST.MF" == entry.name } match {
+          case Some(manifestEntry) =>
+            getPluginInfo(client.fetch(metaInfUrl.appendPath(manifestEntry.name), manifestEntry.version, manifestEntry.isDir))
           case None => (null, Set.empty);
         }
       }
@@ -110,19 +141,13 @@ object SvnCrawler {
     }
   }
 
-  private def getPluginInfo(manifestFile: SVNUrl, svn: SvnClient): (String, Set[String]) = {
-    val content = svn.getStringContent(manifestFile)
+  private def getPluginInfo(manifestFile: SvnNode): (String, Set[String]) = {
+    val content = manifestFile.asInstanceOf[SvnFile].content
     (ProjectDeps.findPluginName(Source.fromString(content)), ProjectDeps.findPluginDeps(Source.fromString(content)))
   }
 
-  private def isExcluded(url: SVNUrl, exclusions: List[Regex]): Boolean = {
+  private def isExcluded(url: SVNUrl): Boolean = {
     val urlString = url.toString
     exclusions.exists { regex => regex.pattern.matcher(urlString).matches }
-  }
-
-  private def isDir(url: SVNUrl): Boolean = {
-    val svn = SvnClient.getSvnClient
-    val info: ISVNInfo = svn.getInfo(url)
-    info.getNodeKind == SVNNodeKind.DIR
   }
 }

@@ -25,20 +25,64 @@ import fr.sivrit.svn.helper.ISvnHelper
 import fr.sivrit.svn.helper.Preferences
 import org.tigris.subversion.svnclientadapter.ISVNStatus
 import fr.sivrit.svn.helper.scala.svn.SvnClient
+import fr.sivrit.svn.helper.scala.svn.SvnAdapter
+import org.eclipse.jface.dialogs.ProgressMonitorDialog
+import org.eclipse.jface.operation.IRunnableWithProgress
+import java.lang.reflect.InvocationTargetException
+import fr.sivrit.svn.helper.Logger
+import org.eclipse.core.runtime.IStatus
+import org.eclipse.core.runtime.IProgressMonitor
+import org.eclipse.core.runtime.SubMonitor
+import org.tigris.subversion.subclipse.core.SVNException
+import org.tigris.subversion.svnclientadapter.SVNClientException
 
 class SvnHelperScala extends ISvnHelper {
 
   def checkoutBranch(repo: ISVNRepositoryLocation, svnUrls: Array[SVNUrl]): Boolean = {
 
-    val exclusions: Array[Regex] = Preferences.getExclusions.map { pattern => pattern.r }
+    var svnProjects: Set[(ProjectDeps, SVNUrl)] = null
+    var toSwitch: Set[(IProject, SVNUrl)] = null
+    var toCo: Set[SVNUrl] = null
 
-    val svnProjects = SvnCrawler.findProjects(svnUrls, exclusions.toList)
+    val progress = new ProgressMonitorDialog(null);
+    try {
+      progress.run(true, true, new IRunnableWithProgress() {
+        def run(monitor: IProgressMonitor) = {
+          val subMonitor = SubMonitor.convert(monitor);
 
-    val (toSwitch, toCo) = SvnHelperScala.sortOut(svnProjects)
+          subMonitor.setWorkRemaining(10);
+          subMonitor.setTaskName("Looking for projects...");
 
-    val title: String = if (svnUrls.length == 1) ("checkoutBranch: " + svnUrls(0)) else "checkoutBranches"
-    var msg: String = "Projects found: " + svnProjects.size + "\nWill switch: " + toSwitch.size + "\nWill checkout: " + toCo.size
-    if ((svnUrls.length > 1)) msg = "checkoutBranches: " + svnUrls.toList + "\n\n" + msg
+          val crawler = new SvnCrawler(subMonitor.newChild(9,
+            SubMonitor.SUPPRESS_BEGINTASK), true);
+          try {
+            svnProjects = crawler.findProjects(svnUrls);
+
+            subMonitor.setTaskName("Comparing projects to workspace...");
+
+            val switchAndCo = SvnHelperScala.sortOut(svnProjects, subMonitor.newChild(1, SubMonitor.SUPPRESS_BEGINTASK))
+            toSwitch = switchAndCo._1
+            toCo = switchAndCo._2
+          } catch {
+            case e: SVNException =>
+              throw new InvocationTargetException(e)
+            case e: SVNClientException =>
+              throw new InvocationTargetException(e);
+          }
+        }
+      })
+    } catch {
+      case e: InvocationTargetException =>
+        Logger.log(IStatus.ERROR, SvnHelperScala.PLUGIN_ID, e); return false;
+      case e: InterruptedException =>
+        Logger.log(IStatus.ERROR, SvnHelperScala.PLUGIN_ID, e); return false;
+    } finally {
+      SvnAdapter.clearPool();
+    }
+
+    val title: String = if (svnUrls.length == 1) ("Pull branch " + svnUrls(0)) else "Pull multiple branches"
+    var msg: String = "Projects found: " + svnProjects.size + "\nProjects to switch: " + toSwitch.size + "\nProjects to checkout: " + toCo.size
+    if ((svnUrls.length > 1)) msg = "Pulling branches: " + svnUrls.mkString(", ") + "\n\n" + msg
 
     if (!MessageDialog.openQuestion(null, title, msg))
       return false
@@ -57,17 +101,34 @@ class SvnHelperScala extends ISvnHelper {
   }
 
   def createWorkingSets(urls: Array[SVNUrl]): Boolean = {
+    // Map URLs to WorkingSets
+    val wsNames =
+      if (Preferences.getByPassWorkingSetsMapping()) {
+        urls.map(_.getLastPathSegment)
+      } else {
+        val shell = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell()
+        val dialog = new AssignWorkingSetsDialog(shell,
+          "Define Working Sets",
+          "Please map the selected URLs to existing or new WorkingSets.", urls)
+        if (dialog.open() != 0) {
+          return false
+        }
+        dialog.getWs
+      }
+
     // Find the projects to dispatch
-    val newWS: Map[String, List[IProject]] = SvnHelperScala.resolveWorkingSetFromSvn(urls)
+    val newWS: Map[String, List[IProject]] = SvnHelperScala.resolveWorkingSetFromSvn(urls, wsNames)
 
     // Confirm the operation
-    val msg: StringBuilder = new StringBuilder("The following WorkingSets will be created:\n")
-    for (entry <- newWS) {
-      msg.append(entry._1).append(" - ").append(entry._2.length).append(" projects\n")
-    }
+    if (Preferences.getConfirmWorkingSetsCreation()) {
+      val msg: StringBuilder = new StringBuilder("The following WorkingSets will be defined:\n")
+      for (entry <- newWS) {
+        msg.append(entry._1).append(" - ").append(entry._2.length).append(" projects\n")
+      }
 
-    if (!MessageDialog.openQuestion(null, "Define Working Sets", msg.toString())) {
-      return false;
+      if (!MessageDialog.openQuestion(null, "Define Working Sets", msg.toString())) {
+        return false;
+      }
     }
 
     if (Preferences.getSwitchPerspective()) {
@@ -89,7 +150,7 @@ class SvnHelperScala extends ISvnHelper {
     }
 
     // Create missing IWorkingSet and index all WS by name
-    val workingSets: Map[String, IWorkingSet] = SvnHelperScala.createWorkingSets(newWS.keys)
+    val workingSets: Map[String, IWorkingSet] = SvnHelperScala.createWorkingSets(wsNames)
 
     if (Preferences.getTransferFromWorkingSets()) {
       // Remove the projects we will dispatch from existing WS
@@ -118,26 +179,37 @@ object SvnHelperScala {
   private def findWorkspaceProject(name: String): IProject =
     ResourcesPlugin.getWorkspace().getRoot().getProject(name)
 
-  private def findTeamWorkspaceProjects(): Set[ProjectDeps] = {
-    ProjectDeps.findWorkspaceProjects().filter(deps =>
+  private def findTeamWorkspaceProjects(subMonitor: SubMonitor): Set[ProjectDeps] = {
+    subMonitor.subTask("Gathering projects from workspace...");
+    subMonitor.setWorkRemaining(2);
+
+    val projects = ProjectDeps.findWorkspaceProjects(subMonitor.newChild(1))
+
+    subMonitor.subTask("Filtering SVN projects...");
+    subMonitor.setWorkRemaining(projects.size);
+    projects.filter { deps =>
+      subMonitor.worked(1)
       if (deps.name == null) false
       else {
         val iproject = findWorkspaceProject(deps.name)
         RepositoryProvider.getProvider(iproject, SVNProviderPlugin.getTypeId()) != null
-      })
+      }
+    }
   }
 
-  private def sortOut(remotes: Set[(ProjectDeps, SVNUrl)]): (Set[(IProject, SVNUrl)], Set[SVNUrl]) = {
+  private def sortOut(remotes: Set[(ProjectDeps, SVNUrl)], subMonitor: SubMonitor): (Set[(IProject, SVNUrl)], Set[SVNUrl]) = {
     var toSwitch = Set[(IProject, SVNUrl)]()
     var toCo = Set[SVNUrl]()
 
-    val workspace: Set[ProjectDeps] = findTeamWorkspaceProjects()
-    val svn = SvnClient.getSvnClient()
+    subMonitor.setWorkRemaining(2)
 
-    remotes.foreach(item => item match {
-      case (project, url) =>
-        val existing = workspace.find {
-          case deps => ProjectDeps.doMatch(project, deps)
+    val workspace: Set[ProjectDeps] = findTeamWorkspaceProjects(subMonitor.newChild(1))
+
+    subMonitor.setWorkRemaining(remotes.size)
+    SvnAdapter.withSvnAdapter { svn =>
+      remotes.foreach(_ match {
+        case (project, url) => workspace.find {
+          ProjectDeps.doMatch(project, _)
         } match {
           case Some(deps) =>
             val iproj: IProject = findWorkspaceProject(deps.name)
@@ -150,9 +222,11 @@ object SvnHelperScala {
               val duo = (iproj, url)
               toSwitch += duo
             }
-          case None => toCo = toCo + url
+          case None => toCo += url
         }
-    })
+      })
+      subMonitor.worked(1)
+    }
 
     (toSwitch, toCo)
   }
@@ -175,37 +249,46 @@ object SvnHelperScala {
     workingSets
   }
 
-  private def resolveWorkingSetFromSvn(urls: Array[SVNUrl]): Map[String, List[IProject]] = {
-    val useExclusions = Preferences.getApplyOnWokingSet
-    val exclusions: List[Regex] =
-      if (useExclusions)
-        Preferences.getExclusions.map({ pattern => pattern.r }).toList
-      else List.empty;
+  private def resolveWorkingSetFromSvn(urls: Array[SVNUrl], wsNames: Array[String]): Map[String, List[IProject]] = {
+    require(urls.length == wsNames.length)
 
-    val workspace: Set[ProjectDeps] = findTeamWorkspaceProjects()
+    val useExclusions = Preferences.getApplyOnWokingSet
 
     var newWS: Map[String, List[IProject]] = Map.empty
 
-    for (url <- urls) {
-      val wsName = url.getLastPathSegment
-      var wsProjects: List[IProject] = Nil
+    val progress = new ProgressMonitorDialog(null)
+    progress.run(true, true, new IRunnableWithProgress() {
+      def run(monitor: IProgressMonitor) = {
+        val subMonitor = SubMonitor.convert(monitor)
+        subMonitor.setWorkRemaining(10);
+        val workspace: Set[ProjectDeps] = findTeamWorkspaceProjects(subMonitor.newChild(1))
 
-      val svnProjects = SvnCrawler.findProjects(Array(url), exclusions)
+        subMonitor.setWorkRemaining(urls.length)
+        for ((wsName, url) <- wsNames.zip(urls)) {
+          var wsProjects: List[IProject] = Nil
 
-      svnProjects.foreach {
-        case (svnProject, _) =>
-          workspace.find {
-            case locProject => ProjectDeps.doMatch(svnProject, locProject)
-          } match {
-            case Some(locProject) =>
-              wsProjects = findWorkspaceProject(locProject.name) :: wsProjects
-            case None =>
+          subMonitor.setTaskName("Resolving projects in " + url.toString + "...")
+
+          val svnProjects = try {
+            new SvnCrawler(subMonitor.newChild(1, SubMonitor.SUPPRESS_BEGINTASK), useExclusions).findProjects(Array(url))
+          } catch { case e: SVNException => throw new InvocationTargetException(e) }
+          finally { SvnAdapter.clearPool() }
+
+          svnProjects.foreach {
+            case (svnProject, _) =>
+              workspace.find(ProjectDeps.doMatch(svnProject, _)) match {
+                case Some(locProject) => wsProjects = findWorkspaceProject(locProject.name) :: wsProjects
+                case None =>
+              }
           }
-      }
 
-      if (!svnProjects.isEmpty)
-        newWS = newWS.updated(wsName, wsProjects)
-    }
+          if (!svnProjects.isEmpty) {
+            val preExistingProjects = newWS.getOrElse(wsName, Nil)
+            newWS = newWS.updated(wsName, preExistingProjects ++ wsProjects)
+          }
+        }
+      }
+    })
 
     newWS
   }

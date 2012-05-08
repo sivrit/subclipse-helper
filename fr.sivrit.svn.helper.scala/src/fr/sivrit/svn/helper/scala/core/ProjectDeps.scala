@@ -6,6 +6,7 @@ import scala.io.Source
 import scala.util.matching.Regex
 import org.tigris.subversion.svnclientadapter.SVNUrl
 import scala.xml.Elem
+import org.eclipse.core.runtime.SubMonitor
 
 class ProjectDeps(name: String, plugin: String, projectDeps: Set[String], pluginDeps: Set[String]) {
   def name(): String = name;
@@ -21,9 +22,11 @@ object ProjectDeps {
     else a.plugin != null && b.plugin != null && a.plugin.equals(b.plugin)
   }
 
-  def findWorkspaceProjects(): Set[ProjectDeps] = {
+  def findWorkspaceProjects(subMonitor: SubMonitor): Set[ProjectDeps] = {
     val projects: Array[IProject] = ResourcesPlugin.getWorkspace().getRoot().getProjects()
-    val projectDeps: Array[ProjectDeps] = projects.map(fromProject)
+
+    subMonitor.setWorkRemaining(projects.length);
+    val projectDeps: Array[ProjectDeps] = projects.map { subMonitor.worked(1); fromProject(_) }
 
     projectDeps.toSet
   }
