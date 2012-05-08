@@ -23,11 +23,10 @@ Licensed under the [Eclipse Public License](http://www.eclipse.org/legal/epl-v10
 The usual: I am writing this to take care of an itch of mine. This is published in case this could be of some use to someone else, but I make no promises.
 
 ## Dependencies
- - Subclipse 1.6.
+ - Subclipse 1.6 or higher.
  - For the unit tests of the scala plug-in, [ScalaTest](http://www.scalatest.org/) should be registered as a user library under the name "scalatest-1.4", but it is not needed at runtime.
- - A plug-in containing the Scala runtime 2.9. This could be provided either by [Scala IDE](http://www.scala-ide.org/) or the scala-library jar.
+ - A plug-in containing the Scala runtime 2.9. This could be provided either by [Scala IDE](http://www.scala-ide.org/) or the [scala-library jar](http://scala-tools.org/repo-releases/com/weiglewilczek/scala-lang-osgi/).
 
 ## TODO
  - Add some more tests (tricky since it will require to mock Subclipse and Eclipse APIs).
- - Have the scala version catch up with the java one.
 
