@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: fr.sivrit.svn.helper.scala
 Bundle-SymbolicName: fr.sivrit.svn.helper.scala;singleton:=true
-Bundle-Version: 0.0.1.qualifier
+Bundle-Version: 0.0.4.qualifier
 Bundle-License: http://www.eclipse.org/legal/epl-v10.html
 Require-Bundle: org.apache.commons.lang,
  org.eclipse.core.runtime,
@@ -17,7 +17,7 @@ Require-Bundle: org.apache.commons.lang,
  org.eclipse.ui.workbench.texteditor,
  org.tigris.subversion.subclipse.core,
  org.tigris.subversion.subclipse.ui,
- fr.sivrit.svn.helper,
+ fr.sivrit.svn.helper;bundle-version="0.0.4",
  scala-library;bundle-version="2.9.0";resolution:=optional,
  org.scala-ide.scala.library;resolution:=optional
 Bundle-ActivationPolicy: lazy
