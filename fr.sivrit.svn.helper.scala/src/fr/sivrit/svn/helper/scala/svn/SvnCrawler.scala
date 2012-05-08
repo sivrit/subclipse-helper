@@ -27,54 +27,69 @@ class SvnCrawler(monitor: SubMonitor, useExclusions: Boolean) {
   def findProjects(urls: Array[SVNUrl]): Set[(ProjectDeps, SVNUrl)] =
     parallelFindProjects(urls)
 
+  private sealed case class Interrupted
+  private sealed case class Result(result: Set[(ProjectDeps, SVNUrl)])
+
   private def parallelFindProjects(urls: Array[SVNUrl]): Set[(ProjectDeps, SVNUrl)] = {
-    var result = Set[(ProjectDeps, SVNUrl)]()
+    val mainSelf = self;
 
-    var todo = for (url <- urls.toList) yield (url, null.asInstanceOf[SvnFolderEntry])
-    var liveActors = 0
-    var totalWork = todo.size
-    var processed = 0
+    actor {
+      val controlerSelf = self;
+      assert(mainSelf != controlerSelf)
 
-    trace("Base urls: " + todo)
+      var result = Set[(ProjectDeps, SVNUrl)]()
 
-    monitor.setWorkRemaining(IProgressMonitor.UNKNOWN);
-    val maxThreads = Preferences.getMaxCrawlerRequests()
-    while (liveActors > 0 || !todo.isEmpty) {
+      var todo = for (url <- urls.toList) yield (url, null.asInstanceOf[SvnFolderEntry])
+      var liveActors = 0
+      var totalWork = todo.size
+      var processed = 0
+
+      trace("Base urls: " + todo)
+
+      monitor.setWorkRemaining(IProgressMonitor.UNKNOWN);
+      val maxThreads = Preferences.getMaxCrawlerRequests()
+      while ((liveActors > 0 || !todo.isEmpty) && !monitor.isCanceled()) {
+        todo match {
+          case (url, entry) :: more if liveActors < maxThreads => {
+            if (isExcluded(url)) {
+              excludedUrls += url
+            } else if (!alreadyChecked.contains(url)) {
+              alreadyChecked += url
+              trace("spawn: " + url)
+              startCrawler(entry, url, controlerSelf)
+              liveActors += 1
+            }
+            todo = more
+          }
+          case _ => {
+            val timeout = receiveWithin(1000) {
+              case item: (ProjectDeps, SVNUrl) => trace("receive project: " + item._2); result += item
+              case urls: List[(SVNUrl, SvnFolderEntry)] => trace("receive todo: " + urls); totalWork += urls.size; todo ++= urls
+              case e: Exception => trace("receive failure: " + e.getMessage); e.printStackTrace()
+              case TIMEOUT => TIMEOUT
+            }
+            if (timeout != TIMEOUT) {
+              liveActors -= 1
+              processed += 1
+            }
+          }
+        }
+
+        monitor.subTask("[" + liveActors + "] Progress: " + (totalWork - processed) + " out of " + totalWork);
+        monitor.worked(1);
+      }
+
       if (monitor.isCanceled()) {
-        throw new InterruptedException();
+        mainSelf ! Interrupted
+      } else {
+        mainSelf ! Result(result)
       }
-
-      todo match {
-        case (url, entry) :: more if liveActors < maxThreads => {
-          if (isExcluded(url)) {
-            excludedUrls += url
-          } else if (!alreadyChecked.contains(url)) {
-            alreadyChecked += url
-            trace("spawn: " + url)
-            startCrawler(entry, url, self)
-            liveActors += 1
-          }
-          todo = more
-        }
-        case _ => {
-          val timeout = receiveWithin(1000) {
-            case item: (ProjectDeps, SVNUrl) => trace("receive project: " + item._2); result += item
-            case urls: List[(SVNUrl, SvnFolderEntry)] => trace("receive todo: " + urls); totalWork += urls.size; todo ++= urls
-            case e: Exception => trace("receive failure: " + e.getMessage); e.printStackTrace()
-            case TIMEOUT => TIMEOUT
-          }
-          if (timeout != TIMEOUT) {
-            liveActors -= 1
-            processed += 1
-          }
-        }
-      }
-
-      monitor.subTask("[" + liveActors + "] Progress: " + (totalWork - processed) + " out of " + totalWork);
-      monitor.worked(1);
     }
 
-    result
+    return receive {
+      case Result(result) => result
+      case Interrupted => throw new InterruptedException()
+    }
   }
 
   private def startCrawler(entry: SvnFolderEntry, url: SVNUrl, parent: Actor): Unit = {
