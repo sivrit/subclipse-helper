@@ -161,4 +161,36 @@ public final class Preferences {
         final String result = plugin.getPreferenceStore().getString(P_CACHE_FOLDER);
         return StringUtils.isBlank(result) ? null : StringUtils.trim(result);
     }
+
+    // Experimental configuration for switching
+    public static final String P_SETDEPTH = "setDepth";
+    public static final String P_DEPTH_IS_WORKINGCOPY = "workingCopy";
+    public static final String P_FORCE = "force";
+    public static final String P_IGNORE_ANCESTRY = "ignoreAncestry";
+    public static final String P_IGNORE_EXTERNALS = "ignoreExternal";
+
+    public static boolean isSetDepth() {
+        final AbstractUIPlugin plugin = Activator.getPlugin();
+        return plugin.getPreferenceStore().getBoolean(P_SETDEPTH);
+    }
+
+    public static boolean isForce() {
+        final AbstractUIPlugin plugin = Activator.getPlugin();
+        return plugin.getPreferenceStore().getBoolean(P_FORCE);
+    }
+
+    public static boolean isUseWorkingCopy() {
+        final AbstractUIPlugin plugin = Activator.getPlugin();
+        return plugin.getPreferenceStore().getBoolean(P_DEPTH_IS_WORKINGCOPY);
+    }
+
+    public static boolean isIgnoreAncestry() {
+        final AbstractUIPlugin plugin = Activator.getPlugin();
+        return plugin.getPreferenceStore().getBoolean(P_IGNORE_ANCESTRY);
+    }
+
+    public static boolean isIgnoreExtenals() {
+        final AbstractUIPlugin plugin = Activator.getPlugin();
+        return plugin.getPreferenceStore().getBoolean(P_IGNORE_EXTERNALS);
+    }
 }

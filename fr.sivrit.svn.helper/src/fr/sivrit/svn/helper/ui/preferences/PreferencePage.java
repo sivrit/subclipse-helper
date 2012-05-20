@@ -71,6 +71,18 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
         addField(new StringFieldEditor(Preferences.P_CACHE_FOLDER,
                 "Folder where the cache will be stored", getFieldEditorParent()));
 
+        // Experimental configuration for switching
+        addField(new BooleanFieldEditor(Preferences.P_SETDEPTH, "[EXP] SwitchOperation.setDepth",
+                getFieldEditorParent()));
+        addField(new BooleanFieldEditor(Preferences.P_DEPTH_IS_WORKINGCOPY,
+                "[EXP] SwitchOperation.setDepth(Working Copy)", getFieldEditorParent()));
+        addField(new BooleanFieldEditor(Preferences.P_FORCE, "[EXP] SwitchOperation.setForce",
+                getFieldEditorParent()));
+        addField(new BooleanFieldEditor(Preferences.P_IGNORE_ANCESTRY,
+                "[EXP] SwitchOperation.setIgnoreAncestry", getFieldEditorParent()));
+        addField(new BooleanFieldEditor(Preferences.P_IGNORE_EXTERNALS,
+                "[EXP] SwitchOperation.setIgnoreExternals", getFieldEditorParent()));
+
     }
 
     /*

@@ -39,5 +39,12 @@ public class PreferenceInitializer extends AbstractPreferenceInitializer {
 
         store.setDefault(Preferences.P_CACHE_FOLDER, System.getProperty("user.home")
                 + File.separator + ".svnHelperCache");
+
+        // Experimental configuration for switching
+        store.setDefault(Preferences.P_SETDEPTH, false);
+        store.setDefault(Preferences.P_DEPTH_IS_WORKINGCOPY, false);
+        store.setDefault(Preferences.P_FORCE, true);
+        store.setDefault(Preferences.P_IGNORE_ANCESTRY, false);
+        store.setDefault(Preferences.P_IGNORE_EXTERNALS, false);
     }
 }

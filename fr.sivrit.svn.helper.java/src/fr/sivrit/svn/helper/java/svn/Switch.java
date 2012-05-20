@@ -13,6 +13,7 @@ import org.tigris.subversion.subclipse.ui.operations.SwitchOperation;
 import org.tigris.subversion.svnclientadapter.SVNRevision;
 import org.tigris.subversion.svnclientadapter.SVNUrl;
 
+import fr.sivrit.svn.helper.Preferences;
 import fr.sivrit.svn.helper.java.SvnHelperJava;
 import fr.sivrit.svn.helper.java.tools.ProjectUtils;
 
@@ -39,7 +40,13 @@ public class Switch {
             final SVNRevision svnRevision) {
         final SwitchOperation switchOperation = new SwitchOperation(null, projects, svnUrls,
                 svnRevision);
-        switchOperation.setDepth(ISVNCoreConstants.DEPTH_INFINITY);
+        switchOperation.setDepth(Preferences.isUseWorkingCopy() ? ISVNCoreConstants.DEPTH_UNKNOWN
+                : ISVNCoreConstants.DEPTH_INFINITY);
+
+        switchOperation.setSetDepth(Preferences.isSetDepth());
+        switchOperation.setForce(Preferences.isForce());
+        switchOperation.setIgnoreAncestry(Preferences.isIgnoreAncestry());
+        switchOperation.setIgnoreExternals(Preferences.isIgnoreExtenals());
 
         final Job job = new Job("SwitchOperation job") {
             @Override

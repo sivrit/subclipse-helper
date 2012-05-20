@@ -2,13 +2,14 @@ package fr.sivrit.svn.helper.scala.svn
 
 import fr.sivrit.svn.helper.scala.SvnHelperScala
 import java.lang.reflect.InvocationTargetException
-import org.eclipse.core.resources.{IProject, IResource}
+import org.eclipse.core.resources.{ IProject, IResource }
 import org.eclipse.core.runtime.IStatus.ERROR
 import org.eclipse.core.runtime.jobs.Job
-import org.eclipse.core.runtime.{IProgressMonitor, IStatus, Status}
+import org.eclipse.core.runtime.{ IProgressMonitor, IStatus, Status }
 import org.tigris.subversion.subclipse.core.ISVNCoreConstants
 import org.tigris.subversion.subclipse.ui.operations.SwitchOperation
-import org.tigris.subversion.svnclientadapter.{SVNRevision, SVNUrl}
+import org.tigris.subversion.svnclientadapter.{ SVNRevision, SVNUrl }
+import fr.sivrit.svn.helper.Preferences
 
 object SvnSwitch {
   def switch(todo: Set[(IProject, SVNUrl)]): Unit = {
@@ -31,7 +32,12 @@ object SvnSwitch {
     svnRevision: SVNRevision): Unit = {
     val switchOperation: SwitchOperation = new SwitchOperation(null, projects, svnUrls,
       svnRevision)
-    switchOperation.setDepth(ISVNCoreConstants.DEPTH_INFINITY)
+
+    switchOperation.setDepth(if (Preferences.isUseWorkingCopy()) ISVNCoreConstants.DEPTH_UNKNOWN else ISVNCoreConstants.DEPTH_INFINITY)
+    switchOperation.setSetDepth(Preferences.isSetDepth());
+    switchOperation.setForce(Preferences.isForce());
+    switchOperation.setIgnoreAncestry(Preferences.isIgnoreAncestry());
+    switchOperation.setIgnoreExternals(Preferences.isIgnoreExtenals());
 
     val job: Job = new Job("SwitchOperation job") {
       def run(monitor: IProgressMonitor): IStatus = {
