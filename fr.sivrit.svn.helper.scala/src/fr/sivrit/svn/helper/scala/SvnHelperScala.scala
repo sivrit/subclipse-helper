@@ -155,7 +155,7 @@ class SvnHelperScala extends ISvnHelper {
     if (Preferences.getTransferFromWorkingSets()) {
       // Remove the projects we will dispatch from existing WS
       var allProjects: Set[IProject] = Set()
-      for (val projects <- newWS.values) {
+      for (projects <- newWS.values) {
         allProjects ++= projects;
       }
       SvnHelperScala.removeProjectsFromWorkingSets(workingSets.values, allProjects);
