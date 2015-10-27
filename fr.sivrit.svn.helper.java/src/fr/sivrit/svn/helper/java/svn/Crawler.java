@@ -111,6 +111,8 @@ public class Crawler {
         private final SVNUrl url;
         private final SvnFolderEntry entry;
         private final AtomicInteger liveActors;
+        
+        private final boolean checkProjectFile;
 
         public CrawlerRunnable(final Set<RemoteProject> result, final ExecutorService executor,
                 final AtomicInteger liveActors, final SVNUrl url) throws SVNException {
@@ -121,6 +123,8 @@ public class Crawler {
             this.entry = null;
             this.liveActors = liveActors;
 
+            this.checkProjectFile = false;
+            
             liveActors.incrementAndGet();
             totalActors.incrementAndGet();
         }
@@ -134,6 +138,8 @@ public class Crawler {
             this.url = url;
             this.entry = entry;
             this.liveActors = liveActors;
+            
+            this.checkProjectFile = true;
 
             liveActors.incrementAndGet();
             totalActors.incrementAndGet();
@@ -158,7 +164,7 @@ public class Crawler {
 
                 assert node.isDir : url.toString();
 
-                final RemoteProject project = identifyProject(node.children);
+                final RemoteProject project = checkProjectFile ? identifyProject(node.children) : null;
                 if (project == null) {
                     for (final SvnFolderEntry child : node.children) {
                         if (child.isDir) {
