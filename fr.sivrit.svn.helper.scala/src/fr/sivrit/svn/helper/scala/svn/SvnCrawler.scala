@@ -63,9 +63,12 @@ class SvnCrawler(monitor: SubMonitor, useExclusions: Boolean) {
           }
           case _ => {
             val timeout = receiveWithin(1000) {
-              case item: (ProjectDeps, SVNUrl) => trace("receive project: " + item._2); result += item
-              case urls: List[(SVNUrl, SvnFolderEntry)] => trace("receive todo: " + urls); totalWork += urls.size; todo ++= urls
-              case e: Exception => trace("receive failure: " + e.getMessage); e.printStackTrace()
+              case Project(p, url) =>
+                trace("receive project: " + url); result += ((p, url))
+              case Todo(urls) =>
+                trace("receive todo: " + urls); totalWork += urls.size; todo ++= urls
+              case e: Exception =>
+                trace("receive failure: " + e.getMessage); e.printStackTrace()
               case TIMEOUT => TIMEOUT
             }
             if (timeout != TIMEOUT) {
@@ -80,7 +83,7 @@ class SvnCrawler(monitor: SubMonitor, useExclusions: Boolean) {
       }
 
       if (monitor.isCanceled()) {
-        mainSelf ! Interrupted
+        mainSelf ! Interrupted()
       } else {
         mainSelf ! Result(result)
       }
@@ -88,9 +91,13 @@ class SvnCrawler(monitor: SubMonitor, useExclusions: Boolean) {
 
     return receive {
       case Result(result) => result
-      case Interrupted => throw new InterruptedException()
+      case Interrupted    => throw new InterruptedException()
     }
   }
+
+  private sealed trait CralwerResult
+  private case class Todo(entries: List[(SVNUrl, SvnFolderEntry)]) extends CralwerResult
+  private case class Project(p: ProjectDeps, url: SVNUrl) extends CralwerResult
 
   private def startCrawler(entry: SvnFolderEntry, url: SVNUrl, parent: Actor): Unit = {
     actor {
@@ -109,15 +116,18 @@ class SvnCrawler(monitor: SubMonitor, useExclusions: Boolean) {
 
         val entries: Set[SvnFolderEntry] = node.asInstanceOf[SvnDir].children
         identifyProject(url, entries) match {
-          case Some(project) => trace("startCrawler(" + url + ") => project " + project.name); parent ! (project, url)
-          case None =>
+          case Some(project) =>
+            trace("startCrawler(" + url + ") => project " + project.name); parent ! Project(project, url)
+          case None => {
             trace("startCrawler(" + url + ") => dir ");
-            parent ! entries.foldLeft(List.empty[(SVNUrl, SvnFolderEntry)]) { (results, entry) =>
+            val todo = entries.foldLeft(List.empty[(SVNUrl, SvnFolderEntry)]) { (results, entry) =>
               if (entry.isDir)
                 (url.appendPath(entry.name), entry) :: results
               else
                 results
             }
+            parent ! Todo(todo)
+          }
         }
       } catch {
         case e: Exception => trace("startCrawler(" + url + ") => failed: " + e.getMessage); parent ! e

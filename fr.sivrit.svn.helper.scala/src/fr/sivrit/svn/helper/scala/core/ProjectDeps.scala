@@ -54,10 +54,10 @@ object ProjectDeps {
 
     manifest.getLines().find {
       case SymbolicName(name) => true
-      case _ => false
+      case _                  => false
     } match {
       case Some(SymbolicName(name)) => name
-      case None => null;
+      case None                     => null;
     }
   }
 
@@ -78,7 +78,7 @@ object ProjectDeps {
       } else {
         val bundle = line match {
           case RequireBundle(name) => name
-          case _ => null;
+          case _                   => null;
         }
         if (bundle != null) {
           inRequire = true;

@@ -8,7 +8,7 @@ import org.tigris.subversion.svnclientadapter.ISVNDirEntry
 
 class SvnClient {
   def fetch(url: SVNUrl): SvnNode = {
-    val svn: SvnAdapter = SvnAdapter.borrow
+    val svn: SvnAdapter = SvnAdapter.borrow()
 
     try {
       val info: ISVNInfo = svn.getInfo(url)
@@ -32,13 +32,13 @@ class SvnClient {
             entries += new SvnFolderEntry(isvnDirEntry)
           }
 
-          return new SvnDir(url, version, entries);
+          return new SvnDir(url, version, entries)
         } else {
           val content: String = svn.getStringContent(url)
-          return new SvnFile(url, version, content);
+          return new SvnFile(url, version, content)
         }
       } finally {
-        SvnAdapter.release(svn);
+        SvnAdapter.release(svn)
       }
     }
 }
@@ -47,11 +47,10 @@ object SvnClient {
   def createClient(): SvnClient = {
     val location = Preferences.getCacheFolder
     if (location == null) {
-      new SvnClient();
+      new SvnClient()
     } else {
-      val cacheDir = if (location.endsWith(File.separator)) location else (location
-        + File.separator);
-      return new CachedSvnClient(cacheDir);
+      val cacheDir = if (location.endsWith(File.separator)) location else (location + File.separator)
+      new CachedSvnClient(cacheDir)
     }
   }
 }
