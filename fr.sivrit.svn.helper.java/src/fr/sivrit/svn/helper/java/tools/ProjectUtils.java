@@ -13,6 +13,8 @@ import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -158,13 +160,22 @@ public class ProjectUtils {
         return null;
     }
 
-    public static String findProjectName(final String projectFileContent) throws IOException {
+    private static InputStream toInputStream(final String fileContent) {
         try {
-            return findProjectName(new ByteArrayInputStream(projectFileContent.getBytes("UTF-8")));
+            return new ByteArrayInputStream(fileContent.getBytes("UTF-8"));
         } catch (final UnsupportedEncodingException e) {
             // Really unexpected
             throw new RuntimeException(e);
         }
+    }
+
+    public static String findProjectName(final String projectFileContent) throws IOException {
+        return findProjectName(toInputStream(projectFileContent));
+    }
+
+    public static Set<String> findProjectNatures(final String projectFileContent)
+            throws IOException {
+        return findProjectNatures(toInputStream(projectFileContent));
     }
 
     private static Node findNode(final NodeList nodes, final String name) {
@@ -178,7 +189,7 @@ public class ProjectUtils {
         return null;
     }
 
-    public static String findProjectName(final InputStream projectFileContent) throws IOException {
+    private static Document parseXml(final InputStream projectFileContent) throws IOException {
         final Document dom;
         try {
             final DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -190,6 +201,11 @@ public class ProjectUtils {
         } catch (final SAXException se) {
             throw new IllegalArgumentException(se);
         }
+        return dom;
+    }
+
+    public static String findProjectName(final InputStream projectFileContent) throws IOException {
+        final Document dom = parseXml(projectFileContent);
 
         final Node projectDescription = findNode(dom.getChildNodes(), "projectDescription");
         assert projectDescription != null;
@@ -198,5 +214,29 @@ public class ProjectUtils {
         assert name != null;
 
         return name.getTextContent();
+    }
+
+    public static Set<String> findProjectNatures(final InputStream projectFileContent)
+            throws IOException {
+        final Document dom = parseXml(projectFileContent);
+
+        final Node projectDescription = findNode(dom.getChildNodes(), "projectDescription");
+        assert projectDescription != null;
+
+        final Node natures = findNode(projectDescription.getChildNodes(), "natures");
+        assert natures != null;
+
+        final Set<String> result = new HashSet<String>();
+
+        final NodeList natureList = natures.getChildNodes();
+        final int count = natureList.getLength();
+        for (int i = 0; i < count; i++) {
+            final Node nature = natureList.item(i);
+            if ("nature".equals(nature.getNodeName())) {
+                result.add(nature.getTextContent());
+            }
+        }
+
+        return result;
     }
 }

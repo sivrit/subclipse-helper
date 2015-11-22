@@ -8,12 +8,7 @@ import org.tigris.subversion.svnclientadapter.SVNUrl
 import scala.xml.Elem
 import org.eclipse.core.runtime.SubMonitor
 
-class ProjectDeps(name: String, plugin: String, projectDeps: Set[String], pluginDeps: Set[String]) {
-  def name(): String = name;
-  def plugin(): String = plugin;
-  def projectDeps(): Set[String] = projectDeps;
-  def pluginDeps(): Set[String] = pluginDeps;
-}
+case class ProjectDeps(name: String, plugin: String, projectDeps: Set[String], pluginDeps: Set[String], natures: Set[String] = Set())
 
 object ProjectDeps {
   def doMatch(a: ProjectDeps, b: ProjectDeps): Boolean = {
@@ -99,5 +94,10 @@ object ProjectDeps {
    */
   def findProjectName(definition: Elem): String = {
     (definition \ "name").text
+  }
+
+  def findProjectNatures(definition: Elem): Set[String] = {
+    val natureSeq = definition \\ "nature" map (_.text)
+    natureSeq.toSet
   }
 }

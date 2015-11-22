@@ -16,7 +16,7 @@ public class PreferenceInitializer extends AbstractPreferenceInitializer {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @seeorg.eclipse.core.runtime.preferences.AbstractPreferenceInitializer#
      * initializeDefaultPreferences()
      */
@@ -26,6 +26,7 @@ public class PreferenceInitializer extends AbstractPreferenceInitializer {
         store.setDefault(Preferences.P_PREFERRED_IMPLEMENTATION,
                 SvnHelperProxy.DEFAULT_IMPLEMENTATION);
         store.setDefault(Preferences.P_CRAWLER_PARALLEL_REQUEST_LIMIT, 8);
+        store.setDefault(Preferences.P_IGNORE_NATURELESS_PROJECTS, true);
 
         store.setDefault(Preferences.P_EXCLUSIONS, "");
         store.setDefault(Preferences.P_EXCLUDE_DEP, true);

@@ -3,6 +3,7 @@ package fr.sivrit.svn.helper.java.tools;
 import static fr.sivrit.svn.helper.java.tools.ProjectUtils.fillFromManifest;
 import static fr.sivrit.svn.helper.java.tools.ProjectUtils.findPluginName;
 import static fr.sivrit.svn.helper.java.tools.ProjectUtils.findProjectName;
+import static fr.sivrit.svn.helper.java.tools.ProjectUtils.findProjectNatures;
 import static fr.sivrit.svn.helper.java.tools.ProjectUtils.splitLines;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -31,6 +32,16 @@ public class ProjectUtilsTest {
             + "    <nature>org.eclipse.jdt.core.javanature</nature>\n"
             + "    <nature>org.eclipse.pde.PluginNature</nature>\n" + "  </natures>\n"
             + "</projectDescription>";
+
+    private final static String projectFileWithNoNature = "    <projectDescription>"//
+            + "      <name>fr.some.thing</name>" //
+            + "      <comment></comment>" //
+            + "      <projects> </projects>" //
+            + "      <buildSpec>" //
+            + "      </buildSpec>" //
+            + "      <natures>" //
+            + "      </natures>" //
+            + "    </projectDescription>";
 
     private final static String sampleCompleteManifest = "Manifest-Version: 1.0\n"
             + "Bundle-ManifestVersion: 2\n" + "Bundle-Name: BundleName\n"
@@ -65,6 +76,21 @@ public class ProjectUtilsTest {
     @Test
     public void verifyFindProjectName() throws IOException {
         assertEquals("ProjectName", findProjectName(sampleProjectFile));
+    }
+
+    @Test
+    public void verifyEmptyProjectNature() throws IOException {
+        assertTrue(findProjectNatures(projectFileWithNoNature).isEmpty());
+    }
+
+    @Test
+    public void verifyProjectNatures() throws IOException {
+        final Set<String> natures = findProjectNatures(sampleProjectFile);
+
+        assertEquals(3, natures.size());
+        assertTrue(natures.contains("org.scala-ide.sdt.core.scalanature"));
+        assertTrue(natures.contains("org.eclipse.jdt.core.javanature"));
+        assertTrue(natures.contains("org.eclipse.pde.PluginNature"));
     }
 
     @Test

@@ -16,6 +16,7 @@ public class ProjectDeps {
     private String plugin;
     private final Set<String> projectDeps = new HashSet<String>();
     private final Set<String> pluginDeps = new HashSet<String>();
+    private final Set<String> natures = new HashSet<String>();
 
     public ProjectDeps() {
         super();
@@ -58,5 +59,9 @@ public class ProjectDeps {
 
     public Set<String> getPluginDeps() {
         return pluginDeps;
+    }
+
+    public Set<String> getNatures() {
+        return natures;
     }
 }

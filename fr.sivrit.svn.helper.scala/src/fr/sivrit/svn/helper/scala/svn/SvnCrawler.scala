@@ -21,6 +21,8 @@ class SvnCrawler(monitor: SubMonitor, useExclusions: Boolean) {
   val client = SvnClient.createClient();
 
   val exclusions: Array[Regex] = if (useExclusions) Preferences.getExclusions.map { pattern => pattern.r } else Array[Regex]()
+  val requireNature = Preferences.ignoreNaturelessProjects
+
   var excludedUrls = Set[SVNUrl]()
   var alreadyChecked = Set[SVNUrl]()
 
@@ -138,17 +140,20 @@ class SvnCrawler(monitor: SubMonitor, useExclusions: Boolean) {
   private def identifyProject(url: SVNUrl, entries: Set[SvnFolderEntry]): Option[ProjectDeps] = {
     entries.find { entry => !entry.isDir && ".project" == entry.name } match {
       case Some(entry) => {
-        val (name, projectDeps) = getProjectInfo(client.fetch(url.appendPath(entry.name), entry.version, entry.isDir))
-        val (plugin, pluginDeps) = findPluginInfo(url, entries)
-        Some(new ProjectDeps(name, plugin, projectDeps, pluginDeps))
+        val projectFileContent = client.fetch(url.appendPath(entry.name), entry.version, entry.isDir)
+        val (name, projectDeps, natures) = getProjectInfo(projectFileContent)
+        if (requireNature && natures.isEmpty) { None } else {
+          val (plugin, pluginDeps) = findPluginInfo(url, entries)
+          Some(ProjectDeps(name, plugin, projectDeps, pluginDeps, natures))
+        }
       }
       case None => None;
     }
   }
 
-  private def getProjectInfo(projectFile: SvnNode): (String, Set[String]) = {
+  private def getProjectInfo(projectFile: SvnNode): (String, Set[String], Set[String]) = {
     val description: Elem = XML.loadString(projectFile.asInstanceOf[SvnFile].content)
-    (ProjectDeps.findProjectName(description), Set.empty)
+    (ProjectDeps.findProjectName(description), Set.empty, ProjectDeps.findProjectNatures(description))
   }
 
   private def findPluginInfo(projectUrl: SVNUrl, entries: Set[SvnFolderEntry]): (String, Set[String]) = {

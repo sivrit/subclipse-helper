@@ -32,6 +32,12 @@ public final class Preferences {
     public static final String P_CRAWLER_PARALLEL_REQUEST_LIMIT = "crawlerMaxRequests";
 
     /**
+     * If <code>true</code>, the crawler will not consider a project without
+     * nature as an actual project
+     */
+    public static final String P_IGNORE_NATURELESS_PROJECTS = "ignoreNaturelessProjects";
+
+    /**
      * Collections of java regular expression. Any svn URL matching them will be
      * ignored when browsing the svn repository
      */
@@ -129,6 +135,11 @@ public final class Preferences {
         final int value = plugin.getPreferenceStore().getInt(P_CRAWLER_PARALLEL_REQUEST_LIMIT);
 
         return Math.max(1, value);
+    }
+
+    public static boolean ignoreNaturelessProjects() {
+        final AbstractUIPlugin plugin = Activator.getPlugin();
+        return plugin.getPreferenceStore().getBoolean(P_IGNORE_NATURELESS_PROJECTS);
     }
 
     public static boolean enableDebugInformation() {

@@ -45,6 +45,9 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
         addField(new BooleanFieldEditor(Preferences.P_ENABLE_DEBUG, "Enable debug output",
                 getFieldEditorParent()));
 
+        addField(new BooleanFieldEditor(Preferences.P_IGNORE_NATURELESS_PROJECTS,
+                "Ignore projects without a nature", getFieldEditorParent()));
+
         addField(new IntegerFieldEditor(Preferences.P_CRAWLER_PARALLEL_REQUEST_LIMIT,
                 "Maximum number of simultaneous SVN requests", getFieldEditorParent()));
 
@@ -75,7 +78,7 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see
      * org.eclipse.ui.IWorkbenchPreferencePage#init(org.eclipse.ui.IWorkbench)
      */

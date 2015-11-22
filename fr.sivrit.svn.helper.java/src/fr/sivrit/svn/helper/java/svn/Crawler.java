@@ -32,6 +32,7 @@ public class Crawler {
     private final Pattern[] exclusions;
     private final Set<SVNUrl> excludedUrls = Collections.synchronizedSet(new HashSet<SVNUrl>());
     private final Set<SVNUrl> alreadyChecked = Collections.synchronizedSet(new HashSet<SVNUrl>());
+    private final boolean requireNature = Preferences.ignoreNaturelessProjects();
 
     private final SvnClient client = SvnClient.createClient();
 
@@ -197,7 +198,12 @@ public class Crawler {
                     final RemoteProject project = new RemoteProject(url);
                     fillProjectInfo(project, node);
                     fillPluginInfo(project, entries);
-                    return project;
+
+                    if (requireNature && project.getNatures().isEmpty()) {
+                        return null;
+                    } else {
+                        return project;
+                    }
                 }
             }
 
@@ -208,6 +214,7 @@ public class Crawler {
                 throws SVNClientException {
             try {
                 project.setName(ProjectUtils.findProjectName(node.content));
+                project.getNatures().addAll(ProjectUtils.findProjectNatures(node.content));
             } catch (final IOException e) {
                 throw new SVNClientException(e);
             }

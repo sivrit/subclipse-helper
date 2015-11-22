@@ -3,6 +3,7 @@ package fr.sivrit.svn.helper.scala.core
 import org.junit.Assert._
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
+import org.scalatest.Assertions._
 import scala.io.Source
 
 class ProjectDepsTest extends JUnitSuite {
@@ -31,6 +32,17 @@ class ProjectDepsTest extends JUnitSuite {
         <nature>org.scala-ide.sdt.core.scalanature</nature>
         <nature>org.eclipse.jdt.core.javanature</nature>
         <nature>org.eclipse.pde.PluginNature</nature>
+      </natures>
+    </projectDescription>
+
+  val projectFileWithNoNature =
+    <projectDescription>
+      <name>fr.some.thing</name>
+      <comment></comment>
+      <projects> </projects>
+      <buildSpec>
+      </buildSpec>
+      <natures>
       </natures>
     </projectDescription>
 
@@ -74,6 +86,16 @@ Bundle-SymbolicName: bundle.symbolic.name
   @Test
   def verifyFindProjectName() {
     assertEquals("ProjectName", ProjectDeps.findProjectName(sampleProjectFile))
+  }
+
+  @Test
+  def verifyEmptyProjectNature() {
+    assertResult(Set())(ProjectDeps.findProjectNatures(projectFileWithNoNature))
+  }
+
+  @Test
+  def verifyProjectNatures() {
+    assertEquals(Set("org.scala-ide.sdt.core.scalanature", "org.eclipse.jdt.core.javanature", "org.eclipse.pde.PluginNature"), ProjectDeps.findProjectNatures(sampleProjectFile))
   }
 
   @Test
