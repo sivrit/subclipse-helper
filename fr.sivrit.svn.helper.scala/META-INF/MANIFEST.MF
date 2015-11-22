@@ -17,7 +17,7 @@ Require-Bundle: org.apache.commons.lang,
  org.eclipse.ui.workbench.texteditor,
  org.tigris.subversion.subclipse.core,
  org.tigris.subversion.subclipse.ui,
- fr.sivrit.svn.helper;bundle-version="0.0.4",
+ fr.sivrit.svn.helper;bundle-version="0.0.5",
  org.scala-lang.modules.scala-xml;bundle-version="1.0.3",
  org.scala-lang.scala-actors;bundle-version="2.11.7",
  org.scala-lang.scala-library;bundle-version="2.11.7"
