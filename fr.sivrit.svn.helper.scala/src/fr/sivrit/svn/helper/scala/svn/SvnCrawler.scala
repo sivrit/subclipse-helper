@@ -27,7 +27,7 @@ class SvnCrawler(monitor: SubMonitor, useExclusions: Boolean) {
   def findProjects(urls: Array[SVNUrl]): Set[(ProjectDeps, SVNUrl)] =
     parallelFindProjects(urls)
 
-  private sealed case class Interrupted
+  private sealed case class Interrupted()
   private sealed case class Result(result: Set[(ProjectDeps, SVNUrl)])
 
   private def parallelFindProjects(urls: Array[SVNUrl]): Set[(ProjectDeps, SVNUrl)] = {
