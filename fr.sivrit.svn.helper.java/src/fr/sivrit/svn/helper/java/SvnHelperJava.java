@@ -50,6 +50,9 @@ import fr.sivrit.svn.helper.java.tools.ProjectUtils;
 @SuppressWarnings("restriction")
 public class SvnHelperJava implements ISvnHelper {
     public final static String PLUGIN_ID = "fr.sivrit.svn.helper.java";
+    
+    private static final int SWITCH_AND_CHECKOUT = 0;
+    private static final int CANCEL = 2;
 
     @Override
     public boolean checkoutBranch(final ISVNRepositoryLocation repo, final SVNUrl[] svnUrls) {
@@ -104,17 +107,27 @@ public class SvnHelperJava implements ISvnHelper {
             msg = "Pulling branches: " + Arrays.asList(svnUrls) + "\n\n" + msg;
         }
 
-        if (!MessageDialog.openQuestion(null, title, msg)) {
-            return false;
-        }
+        // Message Dialog: choice to make about the final action: checkout & switch or checkout without switch
+		Shell shell = PlatformUI.getWorkbench().getModalDialogShellProvider()
+				.getShell();
+		MessageDialog dialog = new MessageDialog(shell, title, null, msg,
+				MessageDialog.QUESTION, new String[] { "OK", "Checkout Only",
+						"Cancel" }, SWITCH_AND_CHECKOUT);
+		int result = dialog.open();
 
-        // Checkout
-        CheckOut.run(repo, toCo);
+		if (result == CANCEL) {
+			return false;
+		}
 
-        // Switch
-        Switch.run(toSwitch);
+		// Checkout
+		CheckOut.run(repo, toCo);
 
-        return true;
+		// Switch
+		if (result == 0) {
+			Switch.run(toSwitch);
+		}
+
+		return true;
     }
 
     private void sortOut(final Collection<RemoteProject> remotes,
