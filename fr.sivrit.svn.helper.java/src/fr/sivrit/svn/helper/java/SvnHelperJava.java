@@ -50,7 +50,7 @@ import fr.sivrit.svn.helper.java.tools.ProjectUtils;
 @SuppressWarnings("restriction")
 public class SvnHelperJava implements ISvnHelper {
     public final static String PLUGIN_ID = "fr.sivrit.svn.helper.java";
-    
+
     private static final int SWITCH_AND_CHECKOUT = 0;
     private static final int CANCEL = 2;
 
@@ -107,27 +107,26 @@ public class SvnHelperJava implements ISvnHelper {
             msg = "Pulling branches: " + Arrays.asList(svnUrls) + "\n\n" + msg;
         }
 
-        // Message Dialog: choice to make about the final action: checkout & switch or checkout without switch
-		Shell shell = PlatformUI.getWorkbench().getModalDialogShellProvider()
-				.getShell();
-		MessageDialog dialog = new MessageDialog(shell, title, null, msg,
-				MessageDialog.QUESTION, new String[] { "OK", "Checkout Only",
-						"Cancel" }, SWITCH_AND_CHECKOUT);
-		int result = dialog.open();
+        // Message Dialog: choice to make about the final action: checkout &
+        // switch or checkout without switch
+        Shell shell = PlatformUI.getWorkbench().getModalDialogShellProvider().getShell();
+        MessageDialog dialog = new MessageDialog(shell, title, null, msg, MessageDialog.QUESTION,
+                new String[] { "OK", "Checkout Only", "Cancel" }, SWITCH_AND_CHECKOUT);
+        int result = dialog.open();
 
-		if (result == CANCEL) {
-			return false;
-		}
+        if (result == CANCEL) {
+            return false;
+        }
 
-		// Checkout
-		CheckOut.run(repo, toCo);
+        // Checkout
+        CheckOut.run(repo, toCo);
 
-		// Switch
-		if (result == 0) {
-			Switch.run(toSwitch);
-		}
+        // Switch
+        if (result == 0) {
+            Switch.run(toSwitch);
+        }
 
-		return true;
+        return true;
     }
 
     private void sortOut(final Collection<RemoteProject> remotes,
@@ -333,7 +332,7 @@ public class SvnHelperJava implements ISvnHelper {
     /**
      * Ensure working sets with the provided names do exists, and return all
      * working sets indexed by name
-     * 
+     *
      * @param wsNames
      * @return
      */
@@ -364,7 +363,7 @@ public class SvnHelperJava implements ISvnHelper {
      * key (expected to become a working set), and a collection of all projects
      * found below this URL in the repository as key. Only projects located in
      * the workspace are returned.
-     * 
+     *
      * @param urls
      * @return
      * @throws SVNException

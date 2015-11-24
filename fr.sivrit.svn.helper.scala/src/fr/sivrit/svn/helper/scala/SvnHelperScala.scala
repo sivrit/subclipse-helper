@@ -84,14 +84,19 @@ class SvnHelperScala extends ISvnHelper {
     var msg: String = "Projects found: " + svnProjects.size + "\nProjects to switch: " + toSwitch.size + "\nProjects to checkout: " + toCo.size
     if ((svnUrls.length > 1)) msg = "Pulling branches: " + svnUrls.mkString(", ") + "\n\n" + msg
 
-    if (!MessageDialog.openQuestion(null, title, msg))
-      return false
+    val dialog = new MessageDialog(null, title, null, msg, MessageDialog.QUESTION,
+      Array("OK", "Checkout Only", "Cancel"), SvnHelperScala.SwitchAndCheckout)
+    val result = dialog.open()
 
-    // Checkout
-    SvnCheckOut.checkout(repo, toCo.toList)
+    if (result != SvnHelperScala.Cancel) {
+      // Checkout
+      SvnCheckOut.checkout(repo, toCo.toList)
 
-    // Switch
-    SvnSwitch.switch(toSwitch)
+      // Switch
+      if (result == 0) {
+        SvnSwitch.switch(toSwitch)
+      }
+    }
 
     true
   }
@@ -175,6 +180,9 @@ class SvnHelperScala extends ISvnHelper {
 
 object SvnHelperScala {
   val PLUGIN_ID: String = "fr.sivrit.svn.helper.scala"
+
+  val SwitchAndCheckout = 0;
+  val Cancel = 2;
 
   private def findWorkspaceProject(name: String): IProject =
     ResourcesPlugin.getWorkspace().getRoot().getProject(name)
@@ -278,7 +286,7 @@ object SvnHelperScala {
             case (svnProject, _) =>
               workspace.find(ProjectDeps.doMatch(svnProject, _)) match {
                 case Some(locProject) => wsProjects = findWorkspaceProject(locProject.name) :: wsProjects
-                case None =>
+                case None             =>
               }
           }
 
@@ -294,14 +302,14 @@ object SvnHelperScala {
   }
 
   private def removeProjectsFromWorkingSets(sets: Iterable[IWorkingSet],
-    projectsToRemove: Set[IProject]) = {
+                                            projectsToRemove: Set[IProject]) = {
     for (ws <- sets) {
       removeProjectsFromWorkingSet(ws, projectsToRemove);
     }
   }
 
   private def removeProjectsFromWorkingSet(ws: IWorkingSet,
-    projectsToRemove: Set[IProject]) = {
+                                           projectsToRemove: Set[IProject]) = {
     val content = ws.getElements();
 
     var lastElement = content.length - 1;
