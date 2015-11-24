@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <site>
-   <description name="Subclipse Helper Update Site" url="https://s3-eu-west-1.amazonaws.com/sivrit-share/svn_helper_0_0_5/">
-      Update Site for Subclipse Helper 0.0.5
+   <description name="Subclipse Helper Update Site" url="http://update-site.svn-helper.tristan-bartement.fr">
+      Update Site for Subclipse Helper
    </description>
-   <feature url="features/fr.sivrit.svn.helper.java.feature_0.0.5.qualifier.jar" id="fr.sivrit.svn.helper.java.feature" version="0.0.5.qualifier">
+   <feature url="features/fr.sivrit.svn.helper.java.feature_0.0.6.qualifier.jar" id="fr.sivrit.svn.helper.java.feature" version="0.0.6.qualifier">
       <category name="fr.sivrit.svn.helper"/>
    </feature>
-   <feature url="features/fr.sivrit.svn.helper.scala.feature_0.0.5.qualifier.jar" id="fr.sivrit.svn.helper.scala.feature" version="0.0.5.qualifier">
+   <feature url="features/fr.sivrit.svn.helper.scala.feature_0.0.6.qualifier.jar" id="fr.sivrit.svn.helper.scala.feature" version="0.0.6.qualifier">
       <category name="fr.sivrit.svn.helper"/>
    </feature>
    <feature url="features/org.scala-ide.scala211.feature_4.2.0.201509281533.jar" id="org.scala-ide.scala211.feature" version="4.2.0.201509281533"/>

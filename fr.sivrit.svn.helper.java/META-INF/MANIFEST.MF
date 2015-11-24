@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: fr.sivrit.svn.helper.java
 Bundle-SymbolicName: fr.sivrit.svn.helper.java;singleton:=true
-Bundle-Version: 0.0.5.qualifier
+Bundle-Version: 0.0.6.qualifier
 Bundle-License: http://www.eclipse.org/legal/epl-v10.html
 Require-Bundle: org.apache.commons.lang,
  org.eclipse.core.runtime,
@@ -15,6 +15,6 @@ Require-Bundle: org.apache.commons.lang,
  org.eclipse.ui.workbench,
  org.tigris.subversion.subclipse.core,
  org.tigris.subversion.subclipse.ui,
- fr.sivrit.svn.helper;bundle-version="0.0.5"
+ fr.sivrit.svn.helper;bundle-version="0.0.6"
 Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-1.6

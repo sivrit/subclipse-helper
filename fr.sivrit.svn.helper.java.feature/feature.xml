@@ -2,7 +2,7 @@
 <feature
       id="fr.sivrit.svn.helper.java.feature"
       label="Subclipse Helper Java Feature"
-      version="0.0.5.qualifier">
+      version="0.0.6.qualifier">
 
    <description url="https://github.com/sivrit/subclipse-helper">
       Helper plug-ins for Subclipse
